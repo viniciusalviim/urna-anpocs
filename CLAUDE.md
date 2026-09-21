@@ -46,6 +46,16 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 - `renv` para travar versões de pacotes
 - Testes: `testthat`
 
+**Dois apps Shiny separados, mesmo banco:**
+
+- `urna` — o que os votantes acessam: login, cédula, comprovante.
+- `painel` — o que a ANPOCS acessa: mesário e auditoria.
+
+Motivos: quem vota nunca chega perto do código do painel; e o Shiny faz
+uma coisa de cada vez por processo — conferir senha é lento de propósito,
+e com 119 logins no mesmo minuto um app único deixaria o painel congelado.
+As funções compartilhadas moram em `R/`; cada app só tem a sua tela.
+
 Proibido: `shinylive` (roda no navegador, sem servidor, sem banco central —
 inviável para eleição). SQLite. Google Sheets como banco primário.
 
@@ -232,9 +242,14 @@ original, até o fim da janela de retenção.
 
 **Votante**
 
-1. Login (login do programa + senha) — atraso progressivo entre tentativas,
-   **sem bloqueio de conta**. Travar uma credencial numa janela de 30
-   minutos é negar o voto a um programa legítimo.
+1. Login (login do programa + senha), por `autenticar()`:
+   - login inexistente e senha errada dão **a mesma resposta**;
+   - "já votou" só aparece **depois** da senha certa;
+   - confere as credenciais na ordem e para na primeira que bate;
+   - o log registra a tentativa, **nunca o texto digitado**;
+   - **sem bloqueio de conta**: travar uma credencial numa janela de 30
+     minutos é negar o voto a um programa legítimo. Se houver atraso entre
+     tentativas, nunca com `Sys.sleep()` — ele congela o app para todos.
 2. Cédula: digita o número da chapa → aparecem o nome da chapa e a lista de
    membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos.
 3. "VOTO DEPOSITADO" + download automático do comprovante.
@@ -247,7 +262,11 @@ cobrar prova de voto de um coordenador.
 Se o download falhar, o voto já está depositado: não trave a tela nisso. A
 secretaria da ANPOCS reemite pelo painel.
 
-**Painel do mesário**
+**Painel do mesário** — app `painel`, separado da urna
+
+- A geração em massa das senhas **não** é um botão do painel: é um script
+  rodado uma vez no computador do responsável, para que as 357 senhas em
+  texto nunca passem pelo servidor.
 
 - Estado da urna e botões de abrir / encerrar
 - Lista de credenciais: verde = apta e não usada, vermelho = inapta,
@@ -316,6 +335,8 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 2. ~~Geração de credenciais e carga de 119 programas sintéticos~~
    **concluída** — 92 testes passando no total
 3. Login
+   - ~~3a. `autenticar()` e testes~~ **concluída** — 119 testes no total
+   - 3b. Tela de login no app `urna`
 4. Cédula e confirmação
 5. Comprovante e reemissão
 6. Painel do mesário

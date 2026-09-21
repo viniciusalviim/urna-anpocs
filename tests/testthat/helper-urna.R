@@ -4,9 +4,11 @@
 # que le o carimbo gravado DENTRO do banco. Se o banco estiver carimbado como
 # "producao", os testes param, nao importa o que diga o .Renviron.
 
-source(file.path("..", "..", "R", "db.R"))
-source(file.path("..", "..", "R", "voto.R"))
-source(file.path("..", "..", "R", "credenciais.R"))
+# Carrega todos os arquivos de R/. Arquivo novo em R/ entra sozinho.
+for (f in sort(list.files(file.path("..", "..", "R"),
+                          pattern = "\\.R$", full.names = TRUE))) {
+  source(f)
+}
 source(file.path("..", "..", "dev", "ferramentas_dev.R"))
 
 CAMINHO_SCHEMA <- file.path("..", "..", "sql", "001_schema.sql")
