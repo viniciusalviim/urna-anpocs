@@ -41,7 +41,7 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 
 - R + Shiny (`bslib` para UI)
 - PostgreSQL gerenciado no Neon — `DBI` + `RPostgres` + `pool`
-- Senhas: `bcrypt` (ou `sodium`), nunca texto puro
+- Senhas: `sodium::password_store()` (scrypt), nunca texto puro
 - Hospedagem: Posit Connect Cloud (tem variáveis secretas; shinyapps.io não)
 - `renv` para travar versões de pacotes
 - Testes: `testthat`
@@ -159,6 +159,11 @@ simples.
 
 Senha: 8 caracteres sorteados de um alfabeto **sem caracteres ambíguos**
 (sem `0 O o 1 l I`), agrupados em blocos de 4 para digitação em celular.
+A verificação tolera minúsculas, hífen e espaços (`normalizar_senha()`).
+
+`carregar_programas()` só roda em banco sem programas: rodar de novo
+geraria senhas novas e o banco deixaria de bater com o CSV entregue. As
+senhas em texto existem uma única vez, no data.frame que ela devolve.
 
 ---
 
@@ -249,6 +254,12 @@ secretaria da ANPOCS reemite pelo painel.
   azul = em uso neste momento, cinza = já votou
 - Lista de comprovantes emitidos (programa, hora, qual credencial), com
   reemissão
+- **Revogar uma credencial específica** (ex.: senha mandada ao e-mail
+  errado). As três credenciais de um programa valem ao mesmo tempo até ele
+  votar; mandar a reserva não desliga a original. Exige uma coluna nova em
+  `credenciais` — decidir o formato na etapa 6.
+- **Gerar senha nova** para uma credencial de um programa que perdeu as
+  três. A senha nova aparece uma vez na tela e não fica guardada.
 - **Verificação de integridade ao vivo:** `count(votantes)` vs
   `count(votos)` — só um sinal verde ou vermelho, nunca conteúdo
 - **Nunca apuração parcial.** O placar subindo ao lado de quem está votando
@@ -290,6 +301,8 @@ elaborada, qualquer coisa não listada acima.
   secretaria, e nunca entra no repositório nem em nenhuma sessão de
   trabalho.
 - Desenvolvimento sempre contra o banco `urna-dev`, com dados sintéticos.
+- Tudo o que apaga tabelas mora em `dev/ferramentas_dev.R`, que o app
+  nunca carrega, e passa por `exigir_banco_dev()`.
 - `.gitignore`: `.Renviron`, `*.csv`, `credenciais*.json`, `*.sqlite`.
 
 ---
@@ -300,7 +313,8 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 
 1. ~~Esquema + transação do voto (invariantes 1 a 6)~~ **concluída** —
    33 testes passando
-2. Geração de credenciais e carga de 119 programas sintéticos
+2. ~~Geração de credenciais e carga de 119 programas sintéticos~~
+   **concluída** — 92 testes passando no total
 3. Login
 4. Cédula e confirmação
 5. Comprovante e reemissão

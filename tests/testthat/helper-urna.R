@@ -1,44 +1,20 @@
 # Helper dos testes.
 #
-# ATENCAO: recriar_banco() APAGA todas as tabelas.
-#
-# A trava que impede isso de acontecer no banco errado le o carimbo gravado
-# DENTRO do banco, nao uma configuracao do computador. Se o banco estiver
-# carimbado como "producao", os testes param, nao importa o que diga o
-# .Renviron.
+# Tudo o que apaga tabelas esta em dev/ferramentas_dev.R e passa pela trava
+# que le o carimbo gravado DENTRO do banco. Se o banco estiver carimbado como
+# "producao", os testes param, nao importa o que diga o .Renviron.
 
 source(file.path("..", "..", "R", "db.R"))
 source(file.path("..", "..", "R", "voto.R"))
+source(file.path("..", "..", "R", "credenciais.R"))
+source(file.path("..", "..", "dev", "ferramentas_dev.R"))
 
-# Tabelas do sistema. A tabela 'ambiente' NAO esta aqui de proposito:
-# o carimbo nunca e apagado.
-TABELAS <- c("log", "votos", "votantes", "credenciais",
-             "programas", "chapas", "urna")
+CAMINHO_SCHEMA <- file.path("..", "..", "sql", "001_schema.sql")
 
-exigir_banco_dev <- function(con) {
-  amb <- ambiente_do_banco(con)
-
-  if (is.na(amb)) {
-    stop("Este banco nao tem carimbo de ambiente.\n",
-         "Rode dev/01_preparar_banco.R antes de rodar os testes.")
-  }
-  if (!identical(amb, "dev")) {
-    stop("PARADO. Este banco esta carimbado como '", amb, "'.\n",
-         "Os testes apagam todas as tabelas e nao rodam aqui.")
-  }
-  invisible(TRUE)
-}
-
-recriar_banco <- function(con) {
-  exigir_banco_dev(con)
-  DBI::dbExecute(con, paste("drop table if exists",
-                            paste(TABELAS, collapse = ", "), "cascade"))
-  executar_sql(con, file.path("..", "..", "sql", "001_schema.sql"))
-  invisible(TRUE)
-}
+recriar_banco <- function(con) zerar_banco_dev(con, CAMINHO_SCHEMA)
 
 # 3 programas, 3 credenciais cada, 2 chapas, urna aberta em modo teste.
-# A senha_hash aqui e marcador: autenticacao e a etapa 3.
+# A senha_hash aqui e marcador: os testes de voto nao passam pelo login.
 semear <- function(con, estado = "aberta", permite_branco = TRUE) {
   DBI::dbExecute(con,
     "insert into urna (id, estado, modo, permite_branco, aberta_em)
@@ -72,9 +48,16 @@ credenciais_de <- function(con, programa_id) {
     list(programa_id))$id
 }
 
-banco_limpo <- function(...) {
+# Banco com as tabelas vazias.
+banco_vazio <- function() {
   con <- conectar()
   recriar_banco(con)
+  con
+}
+
+# Banco com a semente dos testes de voto.
+banco_limpo <- function(...) {
+  con <- banco_vazio()
   semear(con, ...)
   con
 }
