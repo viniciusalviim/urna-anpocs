@@ -1,0 +1,11 @@
+.Renviron
+.Rhistory
+.RData
+.Rproj.user/
+renv/library/
+*.csv
+*.tsv
+credenciais*.json
+*.sqlite
+comprovantes/
+.positai
