@@ -35,6 +35,38 @@ Duas datas do regimento travam o cronograma:
 Logo: **todo o sistema precisa estar pronto e testado com dados sintéticos
 antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 
+### Cronograma
+
+| Data | O quê |
+|---|---|
+| 23 a 25/09 | Construir tudo, na ordem das camadas de prioridade (ver "Rodadas de teste"). Publicação no Connect Cloud no dia 24, antes do painel. |
+| 25/09 | Fecham as inscrições de chapas. Envio das credenciais de teste às 60 pessoas, com explicação de como votar. |
+| 26 e 27/09 | **Rodada 1 de teste**, urna aberta os dois dias. Testa o sistema: login, cédula, comprovante, celular, redes e navegadores diferentes. |
+| 28/09 | Lista oficial. Criar o banco de produção, gerar as senhas reais e publicar a urna de produção, com endereço diferente da urna de teste. |
+| 28 a 30/09 | Ajustes da rodada 1. |
+| 29/09 a 02/10 | Secretaria distribui as credenciais reais. |
+| 01 e 02/10 | **Rodada 2 de teste**, com janela de 30 minutos marcada. Ensaia a assembleia: pico de acessos, mesário abrindo e encerrando pelo painel, apuração na hora. |
+| 05 a 09/10 | Semana do Encontro: só correções. |
+| 09/10 | Eleição. |
+
+### Rodadas de teste
+
+- Participantes: 60 membros da organização.
+- Cédula com chapas de exemplo, não as reais.
+- Banco Neon separado: projeto `urna-teste`, nem o de dev nem o da eleição.
+- O carimbo de ambiente passa a ter três valores: `dev`, `teste`,
+  `producao` (ver seção 4). Os testes automáticos só rodam contra `dev`.
+
+Camadas de prioridade, nesta ordem:
+
+1. **Indispensável:** cédula e confirmação; voto depositado com
+   comprovante; banco da rodada com as 60 credenciais; urna publicada.
+2. **Transforma a rodada em ensaio:** painel mínimo (abrir e encerrar,
+   quem já votou, sinal de integridade); fechamento com embaralhamento;
+   apuração com boletim.
+3. **Pode esperar:** reemissão de comprovante, revogar credencial, gerar
+   senha nova, ata completa, zerésima formatada, espelho no Sheets.
+
 ---
 
 ## 2. Stack
@@ -60,6 +92,16 @@ As funções compartilhadas moram em `R/`; cada app só tem a sua tela.
 
 Proibido: `shinylive` (roda no navegador, sem servidor, sem banco central —
 inviável para eleição). SQLite. Google Sheets como banco primário.
+
+**Hospedagem.** A urna roda no Connect Cloud. O site da ANPOCS terá só um
+botão apontando para ela, o que também ajuda contra phishing: o endereço
+divulgado pelo canal oficial é o mesmo do botão. Uma página HTML no site
+da ANPOCS não serve, porque a senha do banco ficaria exposta no navegador.
+
+O plano gratuito do Connect Cloud exige repositório público. Antes de
+torná-lo público, conferir no histórico do Git (não só no estado atual) que
+nenhum arquivo de segredo foi commitado: `.Renviron`, CSV de senhas,
+`credenciais*.json`.
 
 ---
 
@@ -156,14 +198,17 @@ apagada pelos testes**:
 ```sql
 create table ambiente (
   id        smallint primary key default 1 check (id = 1),
-  valor     text not null check (valor in ('dev','producao')),
+  valor     text not null check (valor in ('dev','teste','producao')),
   criado_em timestamptz not null default now()
 );
 ```
 
 É o carimbo que identifica o banco. Fica dentro do banco, não no computador
 de quem se conecta: é o que impede os testes (que apagam tabelas) de rodarem
-contra a eleição, mesmo com o `.Renviron` errado.
+contra a eleição, mesmo com o `.Renviron` errado. O valor `teste` é o banco
+das rodadas de teste (projeto `urna-teste`); os testes automáticos recusam
+tudo que não for `dev`. **Pendente no código:** `R/db.R` e
+`dev/01_preparar_banco.R` ainda só aceitam `dev` e `producao`.
 
 `login` é o mesmo para as três credenciais do programa; o que muda é a
 senha. Isso torna a trava por programa natural e o e-mail de instrução mais
@@ -351,8 +396,9 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 5. Comprovante e reemissão
 6. Painel do mesário
 7. Zerésima, boletim, ata, fechamento com embaralhamento, exportação
-8. Espelho no Sheets
-9. Publicação no Connect Cloud
+8. Espelho no Sheets — **opcional**: o Neon já faz backup
+9. Publicação no Connect Cloud — **antecipada para 24/09**, antes do
+   painel (etapa 6), para a rodada 1 de teste
 10. Simulação completa com 119 votos e gente de fora testando
 
 ---
@@ -368,6 +414,10 @@ pode ser esquecido.
       desativado nas configurações do compute. No plano gratuito isso é
       impossível: o banco hiberna após 5 minutos de inatividade. Cancelar em
       novembro.
+- [ ] **Plano Basic do Connect Cloud assinado para outubro.** Cancelar em
+      novembro.
+- [ ] Depois da rodada 1 de teste, conferir na página de uso da conta do
+      Connect Cloud quanto crédito as 48 horas de urna aberta consumiram
 - [ ] Senha do banco diferente da de desenvolvimento
 - [ ] `dev/01_preparar_banco.R` rodado com `AMBIENTE <- "producao"`
 - [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`
@@ -375,6 +425,9 @@ pode ser esquecido.
 - [ ] `urna.estado` = `fechada` até o mesário abrir
 - [ ] Tabela `votos` vazia, confirmado pela zerésima
 - [ ] Nunca rodar `test_dir()` com o `.Renviron` apontando para este banco
+- [ ] No dia 9, abrir a urna alguns minutos antes de liberar a votação: o
+      app dorme quando não tem visitante, e o primeiro acesso demora a
+      acordar
 
 ---
 
