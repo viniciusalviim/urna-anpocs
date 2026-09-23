@@ -23,7 +23,7 @@ comissão eleitoral que não programa.
 | Janela | ~30 minutos, abertura e fechamento manuais pelo mesário |
 | Eleitores | até 119 Programas de Pós-Graduação **e Centros de Pesquisa** |
 | Voto | 1 por associado, exercido pelo Coordenador(a) ou Vice em exercício |
-| Cédula | chapas numeradas (1..N) + branco |
+| Cédula | chapas numeradas (1..N) + abstenção |
 | Credenciais | 3 por programa; 1 distribuída, 2 de reserva |
 
 Duas datas do regimento travam o cronograma:
@@ -166,16 +166,16 @@ create table votantes (
 -- o voto. Nenhuma ligação com votantes. Nenhum tempo. Nenhuma sequência.
 create table votos (
   id    uuid primary key,
-  opcao text not null                     -- '1','2',... ou 'branco'
+  opcao text not null                     -- '1','2',... ou 'abstencao'
 );
 
 create table urna (
-  id             smallint primary key default 1 check (id = 1),
-  estado         text not null check (estado in ('fechada','aberta','encerrada')),
-  modo           text not null check (modo   in ('teste','oficial')),
-  permite_branco boolean not null default true,
-  aberta_em      timestamptz,
-  encerrada_em   timestamptz
+  id                smallint primary key default 1 check (id = 1),
+  estado            text not null check (estado in ('fechada','aberta','encerrada')),
+  modo              text not null check (modo   in ('teste','oficial')),
+  permite_abstencao boolean not null default true,
+  aberta_em         timestamptz,
+  encerrada_em      timestamptz
 );
 
 create table chapas (
@@ -302,7 +302,10 @@ original, até o fim da janela de retenção.
      minutos é negar o voto a um programa legítimo. Se houver atraso entre
      tentativas, nunca com `Sys.sleep()` — ele congela o app para todos.
 2. Cédula: digita o número da chapa → aparecem o nome da chapa e a lista de
-   membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos.
+   membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos. O botão
+   ABSTENÇÃO (só se `urna.permite_abstencao`) escreve "abstenção" no campo;
+   o valor gravado em `votos.opcao` é `abstencao`, sem acento. Não existe
+   voto "branco" no sistema.
 3. "VOTO DEPOSITADO" + download automático do comprovante.
 
 **Comprovante**: nome oficial do programa, data, hora com segundos,
@@ -392,7 +395,8 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 3. Login
    - ~~3a. `autenticar()` e testes~~ **concluída** — 119 testes no total
    - ~~3b. Tela de login no app `urna`~~ **concluída** — 121 testes no total
-4. Cédula e confirmação
+4. ~~Cédula e confirmação~~ **concluída** — 180 testes no total; testada
+   na tela. Depois, "branco" trocado por "abstenção" em todo o sistema
 5. Comprovante e reemissão
 6. Painel do mesário
 7. Zerésima, boletim, ata, fechamento com embaralhamento, exportação
@@ -436,8 +440,9 @@ pode ser esquecido.
 Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
 
 - **Regulamento da urna** aprovado pela Comissão Eleitoral com base no
-  Art. 7º do Regimento (casos omissos). Precisa cobrir: existência do voto
-  em branco, critério de desempate, o que acontece se o sistema cair,
+  Art. 7º do Regimento (casos omissos). Precisa cobrir: a abstenção (a
+  Comissão precisa confirmar que ela existe como opção da cédula e se entra
+  no total de votos), critério de desempate, o que acontece se o sistema cair,
   procedimento de reemissão de credencial na hora, e o limite de sigilo
   declarado na seção 6.
 - **Plano B em papel, impresso e na sala**, com gatilho objetivo: se a urna
@@ -446,6 +451,10 @@ Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
 - **Distribuição das credenciais pela secretaria da ANPOCS**, com aviso
   prévio por canal oficial de qual é o endereço da urna (senão parece
   phishing — e com razão).
+- **Recomendar o computador, com ênfase**, nas instruções da rodada de
+  teste e nas da eleição. A tela de login já traz a linha discreta
+  "Recomendamos votar pelo computador."; as instruções precisam dizer isso
+  com destaque.
 - **Uma segunda pessoa treinada** para operar o painel do mesário no dia 9.
 - **Higiene do computador presencial:** o eleitor digita a própria senha, e
   a sessão se encerra sozinha depois do "voto depositado".

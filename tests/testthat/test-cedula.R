@@ -2,9 +2,9 @@
 # A tela em si é testada na mão; aqui fica a lógica que ela usa.
 
 # Cédula montada à mão, sem banco, para os testes de descrever_opcao().
-cedula_exemplo <- function(permite_branco = TRUE) {
+cedula_exemplo <- function(permite_abstencao = TRUE) {
   list(
-    permite_branco = permite_branco,
+    permite_abstencao = permite_abstencao,
     chapas = list(
       "1" = list(nome = "Chapa Um",
                  membros = data.frame(nome  = c("Fulana", "Sicrano"),
@@ -28,7 +28,7 @@ test_that("ler_cedula lê as chapas com membros e cargos, na ordem do cadastro",
 
   ced <- ler_cedula(con)
 
-  expect_true(ced$permite_branco)
+  expect_true(ced$permite_abstencao)
   expect_equal(names(ced$chapas), c("1", "2"))
   expect_equal(ced$chapas[["1"]]$nome, "Chapa Um")
   expect_equal(ced$chapas[["1"]]$membros$nome,  c("Fulana", "Ciclana"))
@@ -36,15 +36,15 @@ test_that("ler_cedula lê as chapas com membros e cargos, na ordem do cadastro",
   expect_equal(ced$chapas[["2"]]$membros$nome, "Beltrano")
 })
 
-test_that("ler_cedula respeita permite_branco = FALSE", {
-  con <- banco_limpo(permite_branco = FALSE); on.exit(DBI::dbDisconnect(con))
-  expect_false(ler_cedula(con)$permite_branco)
+test_that("ler_cedula respeita permite_abstencao = FALSE", {
+  con <- banco_limpo(permite_abstencao = FALSE); on.exit(DBI::dbDisconnect(con))
+  expect_false(ler_cedula(con)$permite_abstencao)
 })
 
-test_that("ler_cedula sem urna configurada devolve branco proibido", {
+test_that("ler_cedula sem urna configurada devolve abstenção proibida", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
   ced <- ler_cedula(con)
-  expect_false(ced$permite_branco)
+  expect_false(ced$permite_abstencao)
   expect_length(ced$chapas, 0)
 })
 
@@ -91,15 +91,30 @@ test_that("texto que não é número inteiro positivo é inexistente", {
   }
 })
 
-test_that("branco vale só quando permitido", {
-  d <- descrever_opcao(cedula_exemplo(TRUE), "branco")
+test_that("abstenção vale só quando permitida", {
+  d <- descrever_opcao(cedula_exemplo(TRUE), "abstencao")
   expect_equal(d$estado, "valida")
-  expect_equal(d$opcao, "branco")
-  expect_equal(descrever_opcao(cedula_exemplo(TRUE), " BRANCO ")$opcao, "branco")
+  expect_equal(d$opcao, "abstencao")
+  expect_equal(d$nome, "Abstenção")
 
-  d <- descrever_opcao(cedula_exemplo(FALSE), "branco")
+  d <- descrever_opcao(cedula_exemplo(FALSE), "abstencao")
   expect_equal(d$estado, "inexistente")
   expect_null(d$opcao)
+})
+
+test_that("abstenção é aceita com ou sem acento, em qualquer caixa", {
+  # O botão ABSTENÇÃO escreve TEXTO_ABSTENCAO no campo: tem de ser aceito.
+  expect_equal(descrever_opcao(cedula_exemplo(), TEXTO_ABSTENCAO)$opcao, "abstencao")
+  for (x in c("abstencao", "ABSTENCAO", "Abstencao",
+              "abstenção", "ABSTENÇÃO", "Abstenção",
+              "abstençao", "abstencão", " abstencao ")) {
+    expect_equal(descrever_opcao(cedula_exemplo(), x)$opcao, "abstencao", info = x)
+  }
+})
+
+test_that("'branco' não é mais uma opção da cédula", {
+  expect_equal(descrever_opcao(cedula_exemplo(), "branco")$estado, "inexistente")
+  expect_equal(descrever_opcao(cedula_exemplo(), "abst")$estado, "inexistente")
 })
 
 # ---- as duas pontas batem ------------------------------------------------
@@ -108,7 +123,7 @@ test_that("toda opção válida na tela é aceita por registrar_voto()", {
   con <- banco_limpo(); on.exit(DBI::dbDisconnect(con))
   ced <- ler_cedula(con)
 
-  entradas <- c("1", "02", "branco")
+  entradas <- c("1", "02", TEXTO_ABSTENCAO)
   programas <- c("prog01", "prog02", "prog03")
   for (i in seq_along(entradas)) {
     d <- descrever_opcao(ced, entradas[i])

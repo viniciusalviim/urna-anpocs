@@ -5,14 +5,24 @@
 
 library(DBI)
 
-# Lê o conteúdo da cédula: se aceita branco e as chapas com seus membros.
+# O que o botão ABSTENÇÃO escreve no campo da cédula. O valor gravado em
+# votos.opcao é sempre "abstencao", sem acento.
+TEXTO_ABSTENCAO <- "abstenção"   # abstenção
+
+# Tira acento e caixa: "ABSTENÇÃO", "abstencao" e "Abstenção" viram
+# "abstencao". Só cobre as letras acentuadas da palavra abstenção.
+normalizar_opcao <- function(t) {
+  tolower(chartr("çãÇÃ", "caCA", t))
+}
+
+# Lê o conteúdo da cédula: se aceita abstenção e as chapas com seus membros.
 #
-# Devolve list(permite_branco, chapas), onde chapas é uma lista nomeada pelo
-# número da chapa ("1", "2", ...), cada uma com nome e membros
+# Devolve list(permite_abstencao, chapas), onde chapas é uma lista nomeada
+# pelo número da chapa ("1", "2", ...), cada uma com nome e membros
 # (data.frame com nome e cargo, na ordem do cadastro).
 ler_cedula <- function(con) {
-  urna <- DBI::dbGetQuery(con, "select permite_branco from urna where id = 1")
-  permite_branco <- nrow(urna) == 1L && isTRUE(urna$permite_branco)
+  urna <- DBI::dbGetQuery(con, "select permite_abstencao from urna where id = 1")
+  permite_abstencao <- nrow(urna) == 1L && isTRUE(urna$permite_abstencao)
 
   ch <- DBI::dbGetQuery(con,
     "select numero::text as numero, nome, membros::text as membros
@@ -25,7 +35,7 @@ ler_cedula <- function(con) {
   })
   names(chapas) <- ch$numero
 
-  list(permite_branco = permite_branco, chapas = chapas)
+  list(permite_abstencao = permite_abstencao, chapas = chapas)
 }
 
 # Descreve o que está digitado no campo da cédula.
@@ -43,10 +53,10 @@ descrever_opcao <- function(cedula, texto) {
   t <- trimws(texto)
   if (!nzchar(t)) return(vazio)
 
-  if (tolower(t) == "branco") {
-    if (!isTRUE(cedula$permite_branco)) return(inexistente)
-    return(list(estado = "valida", opcao = "branco",
-                nome = "Voto em branco", membros = NULL))
+  if (normalizar_opcao(t) == "abstencao") {
+    if (!isTRUE(cedula$permite_abstencao)) return(inexistente)
+    return(list(estado = "valida", opcao = "abstencao",
+                nome = "Abstenção", membros = NULL))
   }
 
   # Só dígitos, e poucos: evita estouro de inteiro com texto longo.

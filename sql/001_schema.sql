@@ -33,12 +33,12 @@ create table votos (
 );
 
 create table urna (
-  id             smallint primary key default 1 check (id = 1),
-  estado         text not null check (estado in ('fechada','aberta','encerrada')),
-  modo           text not null check (modo   in ('teste','oficial')),
-  permite_branco boolean not null default true,
-  aberta_em      timestamptz,
-  encerrada_em   timestamptz
+  id                smallint primary key default 1 check (id = 1),
+  estado            text not null check (estado in ('fechada','aberta','encerrada')),
+  modo              text not null check (modo   in ('teste','oficial')),
+  permite_abstencao boolean not null default true,
+  aberta_em         timestamptz,
+  encerrada_em      timestamptz
 );
 
 create table chapas (

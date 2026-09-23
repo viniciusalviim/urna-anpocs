@@ -5,7 +5,7 @@ preparar_login <- function(estado = "aberta") {
   con <- banco_vazio()
   senhas <- carregar_programas(con, programas_sinteticos(3))
   DBI::dbExecute(con,
-    "insert into urna (id, estado, modo, permite_branco)
+    "insert into urna (id, estado, modo, permite_abstencao)
      values (1, $1, 'teste', true)", list(estado))
   DBI::dbExecute(con,
     "insert into chapas (numero, nome, membros) values (1, 'Chapa Um', '[]'::jsonb)")

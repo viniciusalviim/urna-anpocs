@@ -22,9 +22,9 @@ formatar_codigo <- function(codigo, bloco = 4) {
   paste(partes, collapse = "-")
 }
 
-opcoes_validas <- function(con, permite_branco) {
+opcoes_validas <- function(con, permite_abstencao) {
   numeros <- DBI::dbGetQuery(con, "select numero::text as n from chapas order by numero")$n
-  if (isTRUE(permite_branco)) c(numeros, "branco") else numeros
+  if (isTRUE(permite_abstencao)) c(numeros, "abstencao") else numeros
 }
 
 # Registra um voto em uma única transação.
@@ -53,7 +53,7 @@ registrar_voto <- function(con, programa_id, credencial_id, opcao) {
   tryCatch({
     # FOR SHARE impede que a urna seja encerrada no meio desta transação.
     urna <- DBI::dbGetQuery(
-      con, "select estado, permite_branco from urna where id = 1 for share")
+      con, "select estado, permite_abstencao from urna where id = 1 for share")
     if (nrow(urna) != 1L)            recusar("urna_nao_configurada")
     if (urna$estado != "aberta")     recusar("urna_nao_aberta")
 
@@ -65,7 +65,7 @@ registrar_voto <- function(con, programa_id, credencial_id, opcao) {
       list(credencial_id, programa_id))
     if (nrow(cred) != 1L)            recusar("credencial_invalida")
 
-    if (!opcao %in% opcoes_validas(con, urna$permite_branco)) {
+    if (!opcao %in% opcoes_validas(con, urna$permite_abstencao)) {
       recusar("opcao_invalida")
     }
 

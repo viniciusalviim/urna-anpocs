@@ -118,8 +118,8 @@ server <- function(input, output, session) {
 
   # ---- cédula ------------------------------------------------------------
 
-  observeEvent(input$branco, {
-    updateTextInput(session, "numero", value = "branco")
+  observeEvent(input$abstencao, {
+    updateTextInput(session, "numero", value = TEXTO_ABSTENCAO)
   })
 
   # Mudou o número: a recusa anterior não vale mais para o que está na tela.
@@ -213,7 +213,9 @@ server <- function(input, output, session) {
         actionButton("entrar", "Entrar", class = "btn-primary w-100"),
         if (!is.null(aviso())) {
           tags$div(class = "alert alert-danger mt-3", aviso())
-        }
+        },
+        tags$p(class = "text-muted small mt-3 mb-0",
+               "Recomendamos votar pelo computador.")
       ),
 
       cedula = {
@@ -229,8 +231,8 @@ server <- function(input, output, session) {
                      autocomplete = "off", value = ""),
           tags$div(
             class = "d-flex gap-2 mt-3",
-            if (isTRUE(ced$permite_branco)) {
-              actionButton("branco", "BRANCO", class = "btn-outline-dark flex-fill")
+            if (isTRUE(ced$permite_abstencao)) {
+              actionButton("abstencao", "ABSTENÇÃO", class = "btn-outline-dark flex-fill")
             },
             actionButton("corrige", "CORRIGE", class = "btn-warning flex-fill")
           ),

@@ -13,7 +13,7 @@ con <- conectar()
 exigir_banco_dev(con)
 
 DBI::dbExecute(con,
-  "insert into urna (id, estado, modo, permite_branco, aberta_em)
+  "insert into urna (id, estado, modo, permite_abstencao, aberta_em)
    values (1, 'aberta', 'teste', true, now())")
 
 DBI::dbExecute(con, "
@@ -30,7 +30,7 @@ DBI::dbExecute(con, "
    ]'::jsonb)")
 
 cat("\nUrna:\n")
-print(DBI::dbGetQuery(con, "select estado, modo, permite_branco from urna"))
+print(DBI::dbGetQuery(con, "select estado, modo, permite_abstencao from urna"))
 cat("\nChapas:\n")
 print(DBI::dbGetQuery(con, "select numero, nome from chapas order by numero"))
 

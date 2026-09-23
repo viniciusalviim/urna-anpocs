@@ -17,10 +17,10 @@ recriar_banco <- function(con) zerar_banco_dev(con, CAMINHO_SCHEMA)
 
 # 3 programas, 3 credenciais cada, 2 chapas, urna aberta em modo teste.
 # A senha_hash aqui e marcador: os testes de voto nao passam pelo login.
-semear <- function(con, estado = "aberta", permite_branco = TRUE) {
+semear <- function(con, estado = "aberta", permite_abstencao = TRUE) {
   DBI::dbExecute(con,
-    "insert into urna (id, estado, modo, permite_branco, aberta_em)
-     values (1, $1, 'teste', $2, now())", list(estado, permite_branco))
+    "insert into urna (id, estado, modo, permite_abstencao, aberta_em)
+     values (1, $1, 'teste', $2, now())", list(estado, permite_abstencao))
 
   DBI::dbExecute(con,
     "insert into chapas (numero, nome, membros) values

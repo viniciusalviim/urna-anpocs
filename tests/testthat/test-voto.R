@@ -81,16 +81,24 @@ test_that("INV 6 — recusa não grava nada e não devolve comprovante", {
   expect_equal(DBI::dbGetQuery(con, "select count(*) as n from votos")$n, 0)
 })
 
-test_that("branco só é aceito quando a urna permite", {
-  con <- banco_limpo(permite_branco = TRUE)
-  expect_true(registrar_voto(con, "prog01", credenciais_de(con, "prog01")[1], "branco")$ok)
+test_that("abstenção só é aceita quando a urna permite", {
+  con <- banco_limpo(permite_abstencao = TRUE)
+  expect_true(registrar_voto(con, "prog01", credenciais_de(con, "prog01")[1], "abstencao")$ok)
+  expect_equal(DBI::dbGetQuery(con, "select opcao from votos")$opcao, "abstencao")
   DBI::dbDisconnect(con)
 
-  con <- banco_limpo(permite_branco = FALSE)
+  con <- banco_limpo(permite_abstencao = FALSE)
+  expect_equal(
+    registrar_voto(con, "prog01", credenciais_de(con, "prog01")[1], "abstencao")$motivo,
+    "opcao_invalida")
+  DBI::dbDisconnect(con)
+})
+
+test_that("o valor antigo 'branco' não é mais uma opção", {
+  con <- banco_limpo(permite_abstencao = TRUE); on.exit(DBI::dbDisconnect(con))
   expect_equal(
     registrar_voto(con, "prog01", credenciais_de(con, "prog01")[1], "branco")$motivo,
     "opcao_invalida")
-  DBI::dbDisconnect(con)
 })
 
 test_that("o comprovante é único e legível", {
