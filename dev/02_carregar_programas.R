@@ -10,6 +10,21 @@ source("R/credenciais.R")
 source("dev/ferramentas_dev.R")
 
 N <- 119
+ARQUIVO_SAIDA <- "saida/credenciais_DEV_sinteticas.csv"
+
+# Confere ANTES de gerar que da para escrever o CSV.
+# Se o arquivo estiver aberto no Excel, a escrita falharia DEPOIS da carga,
+# e as senhas ficariam so no banco, em forma de hash, perdidas para sempre.
+dir.create("saida", showWarnings = FALSE)
+pode_escrever <- tryCatch({
+  f <- file(ARQUIVO_SAIDA, "a"); close(f); TRUE
+}, error = function(e) FALSE, warning = function(e) FALSE)
+
+if (!pode_escrever) {
+  stop("Nao consigo escrever em ", ARQUIVO_SAIDA,
+       ".\nO arquivo esta aberto em outro programa (Excel?). ",
+       "Feche e rode de novo.\nNada foi gerado.", call. = FALSE)
+}
 
 con <- conectar()
 exigir_banco_dev(con)
@@ -20,10 +35,8 @@ t0 <- Sys.time()
 saida <- carregar_programas(con, programas_sinteticos(N))
 cat("Pronto em", round(as.numeric(difftime(Sys.time(), t0, units = "secs"))), "segundos.\n\n")
 
-dir.create("saida", showWarnings = FALSE)
-arquivo <- "saida/credenciais_DEV_sinteticas.csv"
-write.csv(saida, arquivo, row.names = FALSE, fileEncoding = "UTF-8")
-cat("Senhas gravadas em:", arquivo, "\n\n")
+write.csv(saida, ARQUIVO_SAIDA, row.names = FALSE, fileEncoding = "UTF-8")
+cat("Senhas gravadas em:", ARQUIVO_SAIDA, "\n\n")
 
 cat("Primeiras linhas do CSV:\n")
 print(head(saida, 6))

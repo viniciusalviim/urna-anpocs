@@ -15,7 +15,11 @@ parametros_pg <- function() {
     dbname   = Sys.getenv("URNA_PG_DB"),
     user     = Sys.getenv("URNA_PG_USER"),
     password = Sys.getenv("URNA_PG_PASSWORD"),
-    sslmode  = Sys.getenv("URNA_PG_SSLMODE", "require")
+    sslmode  = Sys.getenv("URNA_PG_SSLMODE", "require"),
+    # O banco guarda o momento exato (timestamptz). Esta linha faz a conexao
+    # DEVOLVER esses momentos no horario de Brasilia: log, comprovante,
+    # painel e ata saem todos certos, sem conversao em cada tela.
+    timezone = "America/Sao_Paulo"
   )
 }
 

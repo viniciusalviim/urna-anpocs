@@ -45,6 +45,8 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 - Hospedagem: Posit Connect Cloud (tem variáveis secretas; shinyapps.io não)
 - `renv` para travar versões de pacotes
 - Testes: `testthat`
+- Horários: a conexão devolve tudo no fuso `America/Sao_Paulo` (definido
+  em `R/db.R`, coberto por `test-db.R`). Nenhuma tela converte fuso.
 
 **Dois apps Shiny separados, mesmo banco:**
 
@@ -174,6 +176,10 @@ A verificação tolera minúsculas, hífen e espaços (`normalizar_senha()`).
 `carregar_programas()` só roda em banco sem programas: rodar de novo
 geraria senhas novas e o banco deixaria de bater com o CSV entregue. As
 senhas em texto existem uma única vez, no data.frame que ela devolve.
+
+Todo script que gera senhas confere **antes** que consegue escrever o CSV
+(arquivo aberto no Excel trava a escrita). Senão a carga entraria no banco,
+a escrita falharia depois, e as senhas ficariam só em hash — perdidas.
 
 ---
 
@@ -320,6 +326,10 @@ elaborada, qualquer coisa não listada acima.
   secretaria, e nunca entra no repositório nem em nenhuma sessão de
   trabalho.
 - Desenvolvimento sempre contra o banco `urna-dev`, com dados sintéticos.
+- Para testar na tela: `dev/03_preparar_urna_dev.R` recria os 119
+  programas, o CSV, a urna aberta e duas chapas de exemplo. Os testes
+  apagam o banco: rode o `03` depois deles.
+- Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`.
 - Tudo o que apaga tabelas mora em `dev/ferramentas_dev.R`, que o app
   nunca carrega, e passa por `exigir_banco_dev()`.
 - `.gitignore`: `.Renviron`, `*.csv`, `credenciais*.json`, `*.sqlite`.
@@ -336,7 +346,7 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
    **concluída** — 92 testes passando no total
 3. Login
    - ~~3a. `autenticar()` e testes~~ **concluída** — 119 testes no total
-   - 3b. Tela de login no app `urna`
+   - ~~3b. Tela de login no app `urna`~~ **concluída** — 121 testes no total
 4. Cédula e confirmação
 5. Comprovante e reemissão
 6. Painel do mesário
