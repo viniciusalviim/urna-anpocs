@@ -16,17 +16,41 @@ senha_de <- function(s, login, ordem) {
   s$senha[s$login == login & s$ordem == ordem]
 }
 
-test_that("login certo entra, com qualquer uma das tres credenciais", {
+# Regra mudada por decisão do responsável (uma credencial ativa por
+# programa). Antes, as três credenciais entravam ao mesmo tempo.
+test_that("login certo entra só com a credencial ativa", {
   b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
 
   ids <- DBI::dbGetQuery(b$con,
     "select id from credenciais where programa_id = 'prog001' order by ordem")$id
 
-  for (o in 1:3) {
-    r <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", o))
-    expect_true(r$ok)
-    expect_equal(r$programa_id, "prog001")
-    expect_equal(r$credencial_id, ids[o])
+  r <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", 1))
+  expect_true(r$ok)
+  expect_equal(r$programa_id, "prog001")
+  expect_equal(r$credencial_id, ids[1])
+
+  # reservas ainda inativas: mesma resposta de senha errada
+  errada <- autenticar(b$con, "teste-001", "AAAA-AAAA")
+  for (o in 2:3) {
+    expect_identical(autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", o)),
+                     errada)
+  }
+})
+
+test_that("depois da troca, só a reserva ativada entra", {
+  b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
+
+  ids <- DBI::dbGetQuery(b$con,
+    "select id from credenciais where programa_id = 'prog001' order by ordem")$id
+  expect_true(trocar_credencial(b$con, "prog001")$ok)
+
+  r <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", 2))
+  expect_true(r$ok)
+  expect_equal(r$credencial_id, ids[2])
+
+  for (o in c(1, 3)) {
+    expect_equal(autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", o))$motivo,
+                 "credenciais_invalidas")
   }
 })
 
@@ -73,10 +97,13 @@ test_that("'ja votou' so aparece depois da senha certa", {
   r <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", 1))
   expect_true(registrar_voto(b$con, r$programa_id, r$credencial_id, "1")$ok)
 
-  # com senha certa, de qualquer credencial do programa: ja votou
-  for (o in 1:3) {
-    r2 <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", o))
-    expect_equal(r2$motivo, "ja_votou")
+  # com a senha da credencial ativa: ja votou
+  r2 <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", 1))
+  expect_equal(r2$motivo, "ja_votou")
+  # com a senha de uma reserva inativa: mesma resposta de senha errada
+  for (o in 2:3) {
+    r3 <- autenticar(b$con, "teste-001", senha_de(b$senhas, "teste-001", o))
+    expect_equal(r3$motivo, "credenciais_invalidas")
   }
   # com senha errada: nao revela nada
   expect_equal(autenticar(b$con, "teste-001", "AAAA-AAAA")$motivo,

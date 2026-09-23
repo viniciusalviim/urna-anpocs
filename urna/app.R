@@ -192,7 +192,7 @@ server <- function(input, output, session) {
         class = "btn btn-success btn-lg w-100 mt-3",
         `data-opcao` = d$opcao,
         onclick = "urnaConfirmar(this)",
-        "CONFIRMA"
+        rotulo_confirma(d$opcao)
       )
     )
   })

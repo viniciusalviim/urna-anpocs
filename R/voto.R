@@ -57,11 +57,14 @@ registrar_voto <- function(con, programa_id, credencial_id, opcao) {
     if (nrow(urna) != 1L)            recusar("urna_nao_configurada")
     if (urna$estado != "aberta")     recusar("urna_nao_aberta")
 
+    # Só a credencial ativa vota (invariante 12). FOR SHARE impede que
+    # trocar_credencial() a desative no meio desta transação.
     cred <- DBI::dbGetQuery(con,
       "select c.id
          from credenciais c
          join programas p on p.id = c.programa_id
-        where c.id = $1 and c.programa_id = $2 and p.apto",
+        where c.id = $1 and c.programa_id = $2 and c.ativa and p.apto
+          for share of c",
       list(credencial_id, programa_id))
     if (nrow(cred) != 1L)            recusar("credencial_invalida")
 

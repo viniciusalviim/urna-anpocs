@@ -23,8 +23,9 @@ registrar_log <- function(con, evento, detalhe = NA_character_) {
 #   quais logins existem testando.
 # - "ja_votou" so aparece DEPOIS da senha certa. Ninguem descobre quem ja
 #   votou digitando logins.
-# - Confere as credenciais na ordem e para na primeira que bate: quem usa a
-#   credencial 1 paga uma conferencia lenta so, nao tres.
+# - So a credencial ativa do programa entra (invariante 12). A senha de uma
+#   reserva inativa, ou de uma credencial ja trocada, recebe a mesma resposta
+#   de senha errada.
 # - O log registra a tentativa, NUNCA o texto digitado.
 #
 # Esta funcao nao grava voto. A trava de verdade continua em registrar_voto().
@@ -49,7 +50,7 @@ autenticar <- function(con, login, senha) {
     "select c.id, c.programa_id, c.senha_hash, p.nome_oficial, p.apto
        from credenciais c
        join programas p on p.id = c.programa_id
-      where p.login = $1
+      where p.login = $1 and c.ativa
       order by c.ordem",
     list(l))
 

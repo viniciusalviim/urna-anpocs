@@ -38,6 +38,12 @@ ler_cedula <- function(con) {
   list(permite_abstencao = permite_abstencao, chapas = chapas)
 }
 
+# Texto do botão CONFIRMA, a partir da opção que ele envia a registrar_voto().
+rotulo_confirma <- function(opcao) {
+  if (identical(opcao, "abstencao")) "CONFIRMAR ABSTENÇÃO"
+  else paste("CONFIRMAR VOTO NA CHAPA", opcao)
+}
+
 # Descreve o que está digitado no campo da cédula.
 #
 # Devolve list(estado, opcao, nome, membros) com estado em:

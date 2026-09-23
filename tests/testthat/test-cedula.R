@@ -117,6 +117,20 @@ test_that("'branco' não é mais uma opção da cédula", {
   expect_equal(descrever_opcao(cedula_exemplo(), "abst")$estado, "inexistente")
 })
 
+# ---- rótulo do botão -----------------------------------------------------
+
+test_that("o botão diz o que confirma", {
+  expect_equal(rotulo_confirma("1"),  "CONFIRMAR VOTO NA CHAPA 1")
+  expect_equal(rotulo_confirma("12"), "CONFIRMAR VOTO NA CHAPA 12")
+  expect_equal(rotulo_confirma("abstencao"), "CONFIRMAR ABSTENÇÃO")
+
+  # o rótulo sai da mesma opção que vai para registrar_voto()
+  d <- descrever_opcao(cedula_exemplo(), "012")
+  expect_equal(rotulo_confirma(d$opcao), "CONFIRMAR VOTO NA CHAPA 12")
+  d <- descrever_opcao(cedula_exemplo(), TEXTO_ABSTENCAO)
+  expect_equal(rotulo_confirma(d$opcao), "CONFIRMAR ABSTENÇÃO")
+})
+
 # ---- as duas pontas batem ------------------------------------------------
 
 test_that("toda opção válida na tela é aceita por registrar_voto()", {

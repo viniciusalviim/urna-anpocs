@@ -14,8 +14,13 @@ create table credenciais (
   programa_id text not null references programas(id),
   ordem       smallint not null check (ordem between 1 and 3),
   senha_hash  text not null,
+  ativa       boolean not null default false,
   unique (programa_id, ordem)
 );
+
+-- INVARIANTE 12: no máximo uma credencial ativa por programa.
+create unique index credenciais_uma_ativa_por_programa
+  on credenciais (programa_id) where ativa;
 
 -- Quem votou. Documento público para a Comissão. NÃO contém o voto.
 create table votantes (

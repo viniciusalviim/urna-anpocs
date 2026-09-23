@@ -28,7 +28,8 @@ verificar_senha <- function(senha, hash) {
   isTRUE(tryCatch(sodium::password_verify(hash, s), error = function(e) FALSE))
 }
 
-# Carrega os programas e cria 3 credenciais para cada um.
+# Carrega os programas e cria 3 credenciais para cada um: a 1 ativa, a 2 e a
+# 3 reservas inativas (ver trocar_credencial()).
 #
 # 'programas' e um data.frame com as colunas: id, nome_oficial, tipo, login.
 # Devolve um data.frame com as senhas EM TEXTO (login, nome_oficial, tipo,
@@ -64,6 +65,7 @@ carregar_programas <- function(con, programas) {
     ordem       = rep(1:3, times = nrow(programas)),
     stringsAsFactors = FALSE
   )
+  cred$ativa      <- cred$ordem == 1L
   cred$senha      <- vapply(seq_len(nrow(cred)), function(i) gerar_senha(), character(1))
   cred$senha_hash <- vapply(cred$senha, hash_senha, character(1), USE.NAMES = FALSE)
 
@@ -74,7 +76,7 @@ carregar_programas <- function(con, programas) {
 
     DBI::dbAppendTable(con, "programas", programas)
     DBI::dbAppendTable(con, "credenciais",
-                       cred[, c("programa_id", "ordem", "senha_hash")])
+                       cred[, c("programa_id", "ordem", "senha_hash", "ativa")])
     DBI::dbExecute(con,
       "insert into log (evento, detalhe) values ('credenciais_geradas', $1)",
       list(sprintf("%d programas, %d credenciais", nrow(programas), nrow(cred))))
@@ -94,4 +96,71 @@ carregar_programas <- function(con, programas) {
     senha        = cred$senha,
     stringsAsFactors = FALSE
   )
+}
+
+# Troca a credencial ativa de um programa pela próxima reserva (ex.: senha
+# mandada ao e-mail errado). Numa transação: desativa a ativa e ativa a de
+# ordem seguinte. As reservas são usadas em ordem, e uma credencial que já foi
+# ativa nunca volta a ser.
+#
+# Devolve list(ok = TRUE, credencial_id, ordem) com a credencial que passou a
+# valer, ou list(ok = FALSE, motivo) com motivo em:
+# programa_inexistente, ja_votou, sem_credencial_ativa, sem_reserva,
+# erro_interno.
+trocar_credencial <- function(con, programa_id) {
+  force(programa_id)
+
+  recusar <- function(motivo) {
+    stop(structure(class = c("urna_recusa", "error", "condition"),
+                   list(message = motivo, call = NULL)))
+  }
+
+  DBI::dbBegin(con)
+
+  tryCatch({
+    # FOR UPDATE trava as credenciais do programa: um voto em curso com a
+    # credencial ativa (que a trava FOR SHARE em registrar_voto) termina
+    # antes, e a conferência de "já votou" abaixo já o enxerga.
+    cred <- DBI::dbGetQuery(con,
+      "select id, ordem, ativa from credenciais
+        where programa_id = $1 order by ordem for update",
+      list(programa_id))
+    if (nrow(cred) == 0L)            recusar("programa_inexistente")
+
+    votou <- DBI::dbGetQuery(con,
+      "select count(*)::int as n from votantes where programa_id = $1",
+      list(programa_id))$n
+    if (votou > 0L)                  recusar("ja_votou")
+
+    atual <- cred[cred$ativa, ]
+    if (nrow(atual) != 1L)           recusar("sem_credencial_ativa")
+
+    proxima <- cred[cred$ordem > atual$ordem, ]
+    if (nrow(proxima) == 0L)         recusar("sem_reserva")
+    proxima <- proxima[1, ]
+
+    # Nesta ordem: o índice único não aceita duas ativas nem por um instante.
+    DBI::dbExecute(con, "update credenciais set ativa = false where id = $1",
+                   list(atual$id))
+    DBI::dbExecute(con, "update credenciais set ativa = true where id = $1",
+                   list(proxima$id))
+
+    DBI::dbExecute(con,
+      "insert into log (evento, detalhe) values ('credencial_trocada', $1)",
+      list(sprintf("%s: credencial %d -> %d", programa_id,
+                   as.integer(atual$ordem), as.integer(proxima$ordem))))
+
+    DBI::dbCommit(con)
+    list(ok = TRUE, credencial_id = proxima$id, ordem = proxima$ordem)
+  },
+
+  urna_recusa = function(e) {
+    DBI::dbRollback(con)
+    list(ok = FALSE, motivo = conditionMessage(e))
+  },
+
+  error = function(e) {
+    DBI::dbRollback(con)
+    list(ok = FALSE, motivo = "erro_interno", detalhe = conditionMessage(e))
+  })
 }

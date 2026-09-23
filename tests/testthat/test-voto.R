@@ -20,7 +20,12 @@ test_that("INV 2 — a trava é por programa: as outras credenciais morrem junto
   cred <- credenciais_de(con, "prog01")
 
   expect_true(registrar_voto(con, "prog01", cred[1], "1")$ok)
+
+  # Mesmo que outra credencial do programa passe a ser a ativa (por fora de
+  # trocar_credencial(), que recusaria), o banco recusa o segundo voto.
+  ativar_por_fora(con, "prog01", 2)
   expect_equal(registrar_voto(con, "prog01", cred[2], "2")$motivo, "ja_votou")
+  ativar_por_fora(con, "prog01", 3)
   expect_equal(registrar_voto(con, "prog01", cred[3], "1")$motivo, "ja_votou")
 
   # e não contamina os outros programas
@@ -92,6 +97,32 @@ test_that("abstenção só é aceita quando a urna permite", {
     registrar_voto(con, "prog01", credenciais_de(con, "prog01")[1], "abstencao")$motivo,
     "opcao_invalida")
   DBI::dbDisconnect(con)
+})
+
+test_that("INV 12 — só a credencial ativa vota", {
+  con <- banco_limpo(); on.exit(DBI::dbDisconnect(con))
+  cred <- credenciais_de(con, "prog01")
+
+  for (o in 2:3) {
+    expect_equal(registrar_voto(con, "prog01", cred[o], "1")$motivo,
+                 "credencial_invalida")
+  }
+  expect_equal(conferir_integridade(con)$votos, 0)
+
+  # depois da troca, a antiga deixa de votar e a nova vota
+  expect_true(trocar_credencial(con, "prog01")$ok)
+  expect_equal(registrar_voto(con, "prog01", cred[1], "1")$motivo,
+               "credencial_invalida")
+  expect_true(registrar_voto(con, "prog01", cred[2], "1")$ok)
+  expect_true(conferir_integridade(con)$ok)
+})
+
+test_that("INV 12 — o banco não aceita duas credenciais ativas no mesmo programa", {
+  con <- banco_limpo(); on.exit(DBI::dbDisconnect(con))
+
+  expect_error(DBI::dbExecute(con,
+    "update credenciais set ativa = true where programa_id = 'prog01' and ordem = 2"))
+  expect_equal(credencial_ativa(con, "prog01"), 1)
 })
 
 test_that("o valor antigo 'branco' não é mais uma opção", {

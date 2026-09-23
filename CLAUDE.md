@@ -24,7 +24,7 @@ comissão eleitoral que não programa.
 | Eleitores | até 119 Programas de Pós-Graduação **e Centros de Pesquisa** |
 | Voto | 1 por associado, exercido pelo Coordenador(a) ou Vice em exercício |
 | Cédula | chapas numeradas (1..N) + abstenção |
-| Credenciais | 3 por programa; 1 distribuída, 2 de reserva |
+| Credenciais | 3 por programa; só 1 ativa (a distribuída), 2 reservas inativas |
 
 Duas datas do regimento travam o cronograma:
 
@@ -64,8 +64,9 @@ Camadas de prioridade, nesta ordem:
 2. **Transforma a rodada em ensaio:** painel mínimo (abrir e encerrar,
    quem já votou, sinal de integridade); fechamento com embaralhamento;
    apuração com boletim.
-3. **Pode esperar:** reemissão de comprovante, revogar credencial, gerar
-   senha nova, ata completa, zerésima formatada, espelho no Sheets.
+3. **Pode esperar:** reemissão de comprovante, trocar para a credencial
+   reserva (a função `trocar_credencial()` já existe; falta o botão no
+   painel), gerar senha nova, ata completa, zerésima formatada, espelho no Sheets.
 
 ---
 
@@ -133,6 +134,11 @@ que a mudança está errada, não de que o teste precisa de ajuste.
     ordem de inserção.
 11. **No fechamento, a ordem física da tabela `votos` é destruída.** Ver a
     seção 6.
+12. **No máximo uma credencial ativa por programa, e só ela entra e vota.**
+    Garantido por índice único parcial em `credenciais (programa_id) where
+    ativa`, não por verificação no código R. `autenticar()` e
+    `registrar_voto()` só aceitam credencial ativa. A troca passa sempre
+    para a próxima reserva; uma credencial que já foi ativa não volta.
 
 ---
 
@@ -152,8 +158,13 @@ create table credenciais (
   programa_id text not null references programas(id),
   ordem       smallint not null check (ordem between 1 and 3),
   senha_hash  text not null,
+  ativa       boolean not null default false,
   unique (programa_id, ordem)
 );
+
+-- invariante 12: no máximo uma credencial ativa por programa
+create unique index credenciais_uma_ativa_por_programa
+  on credenciais (programa_id) where ativa;
 
 -- quem votou. Documento público para a Comissão. NÃO contém o voto.
 create table votantes (
@@ -214,6 +225,14 @@ tudo que não for `dev`. **Pendente no código:** `R/db.R` e
 senha. Isso torna a trava por programa natural e o e-mail de instrução mais
 simples.
 
+`carregar_programas()` cria a credencial 1 ativa e as reservas 2 e 3
+inativas. `trocar_credencial(con, programa_id)`, numa transação, desativa a
+ativa e ativa a próxima reserva (1 → 2 → 3). Recusa se o programa já votou
+ou se não houver reserva, e registra a troca no `log`, sem senha. Trava as
+credenciais do programa com `FOR UPDATE`; `registrar_voto()` trava a
+credencial ativa com `FOR SHARE`. Assim, uma troca e um voto simultâneos
+nunca se cruzam.
+
 Senha: 8 caracteres sorteados de um alfabeto **sem caracteres ambíguos**
 (sem `0 O o 1 l I`), agrupados em blocos de 4 para digitação em celular.
 A verificação tolera minúsculas, hífen e espaços (`normalizar_senha()`).
@@ -236,6 +255,9 @@ a escrita falharia depois, e as senhas ficariam só em hash — perdidas.
 begin;
   select estado from urna where id = 1 for share;   -- impede fechar no meio
   -- abortar se estado <> 'aberta'
+
+  select ... from credenciais where id = $2 and ativa ... for share of c;
+  -- abortar se a credencial não for a ativa de um programa apto
 
   insert into votantes (programa_id, credencial_id, comprovante_id)
   values ($1, $2, $3)
@@ -296,13 +318,16 @@ original, até o fim da janela de retenção.
 1. Login (login do programa + senha), por `autenticar()`:
    - login inexistente e senha errada dão **a mesma resposta**;
    - "já votou" só aparece **depois** da senha certa;
-   - confere as credenciais na ordem e para na primeira que bate;
+   - confere só a credencial ativa; a senha de uma reserva inativa ou de
+     uma credencial trocada recebe a mesma resposta de senha errada;
    - o log registra a tentativa, **nunca o texto digitado**;
    - **sem bloqueio de conta**: travar uma credencial numa janela de 30
      minutos é negar o voto a um programa legítimo. Se houver atraso entre
      tentativas, nunca com `Sys.sleep()` — ele congela o app para todos.
 2. Cédula: digita o número da chapa → aparecem o nome da chapa e a lista de
-   membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos. O botão
+   membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos. O botão de
+   confirmar diz o que confirma: "CONFIRMAR VOTO NA CHAPA N" ou
+   "CONFIRMAR ABSTENÇÃO" (`rotulo_confirma()`). O botão
    ABSTENÇÃO (só se `urna.permite_abstencao`) escreve "abstenção" no campo;
    o valor gravado em `votos.opcao` é `abstencao`, sem acento. Não existe
    voto "branco" no sistema.
@@ -327,10 +352,10 @@ secretaria da ANPOCS reemite pelo painel.
   azul = em uso neste momento, cinza = já votou
 - Lista de comprovantes emitidos (programa, hora, qual credencial), com
   reemissão
-- **Revogar uma credencial específica** (ex.: senha mandada ao e-mail
-  errado). As três credenciais de um programa valem ao mesmo tempo até ele
-  votar; mandar a reserva não desliga a original. Exige uma coluna nova em
-  `credenciais` — decidir o formato na etapa 6.
+- **Trocar para a credencial reserva** (ex.: senha mandada ao e-mail
+  errado): botão que chama `trocar_credencial()`. A credencial antiga deixa
+  de valer na mesma transação em que a reserva passa a valer. Substitui o
+  "revogar credencial" planejado antes.
 - **Gerar senha nova** para uma credencial de um programa que perdeu as
   três. A senha nova aparece uma vez na tela e não fica guardada.
 - **Verificação de integridade ao vivo:** `count(votantes)` vs
@@ -442,7 +467,9 @@ Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
 - **Regulamento da urna** aprovado pela Comissão Eleitoral com base no
   Art. 7º do Regimento (casos omissos). Precisa cobrir: a abstenção (a
   Comissão precisa confirmar que ela existe como opção da cédula e se entra
-  no total de votos), critério de desempate, o que acontece se o sistema cair,
+  no total de votos); que o voto confirmado não pode ser alterado nem
+  anulado, nem pela mesa, porque o sistema não tem como saber qual voto é
+  de qual programa; critério de desempate, o que acontece se o sistema cair,
   procedimento de reemissão de credencial na hora, e o limite de sigilo
   declarado na seção 6.
 - **Plano B em papel, impresso e na sala**, com gatilho objetivo: se a urna
