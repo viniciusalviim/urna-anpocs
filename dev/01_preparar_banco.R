@@ -6,6 +6,8 @@
 # rodando este script de novo.
 
 AMBIENTE <- "dev"        # "dev" ou "producao"
+                         # (o banco da rodada, 'teste', e preparado por
+                         #  rodada/01_preparar_banco_rodada.R, nao por este)
 
 source("R/db.R")
 

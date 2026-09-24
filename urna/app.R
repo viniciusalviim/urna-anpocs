@@ -125,6 +125,10 @@ ui <- page_fixed(
 
 server <- function(input, output, session) {
 
+  # URNA_AMBIENTE tem de bater com o carimbo do banco. Se não bater (ou se
+  # faltar), ninguém entra: a tela diz só que a urna está mal configurada.
+  configurada <- tryCatch(conferir_configuracao(pool), error = function(e) FALSE)
+
   tela    <- reactiveVal("login")  # login | cedula | depositado | encerrado
   votante <- reactiveVal(NULL)     # preenchido depois do login
   cedula  <- reactiveVal(NULL)     # conteúdo da cédula (chapas), não o voto
@@ -134,6 +138,7 @@ server <- function(input, output, session) {
   # ---- login -------------------------------------------------------------
 
   observeEvent(input$entrar, {
+    if (!configurada) return()
     if (tela() != "login") return()
     aviso(NULL)
     r <- autenticar(pool, input$login, input$senha)
@@ -173,6 +178,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$confirma, {
     # Cliques atrasados, depois do voto ou do Sair, não fazem nada.
+    if (!configurada) return()
     if (tela() != "cedula") return()
     v <- votante()
     if (is.null(v)) return()
@@ -293,6 +299,16 @@ server <- function(input, output, session) {
   }
 
   output$tela <- renderUI({
+    if (!configurada) {
+      return(tags$div(
+        class = "alert alert-danger",
+        tags$h5("Urna indisponível"),
+        tags$p(class = "mb-0",
+               "Esta urna está mal configurada e não pode receber votos. ",
+               "Avise a organização da eleição.")
+      ))
+    }
+
     switch(tela(),
 
       login = tagList(

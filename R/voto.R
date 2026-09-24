@@ -111,7 +111,7 @@ registrar_voto <- function(con, programa_id, credencial_id, opcao) {
 # Alimenta o sinal verde/vermelho do painel do mesário.
 conferir_integridade <- function(con) {
   r <- DBI::dbGetQuery(con,
-    "select (select count(*) from votantes) as votantes,
-            (select count(*) from votos)    as votos")
+    "select (select count(*)::int from votantes) as votantes,
+            (select count(*)::int from votos)    as votos")
   list(votantes = r$votantes, votos = r$votos, ok = r$votantes == r$votos)
 }

@@ -40,8 +40,8 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 | Data | O quê |
 |---|---|
 | 23 a 25/09 | Construir tudo, na ordem das camadas de prioridade (ver "Rodadas de teste"). Publicação no Connect Cloud no dia 24, antes do painel. |
-| 25/09 | Fecham as inscrições de chapas. Envio das credenciais de teste às 60 pessoas, com explicação de como votar. |
-| 26 e 27/09 | **Rodada 1 de teste**, urna aberta os dois dias. Testa o sistema: login, cédula, comprovante, celular, redes e navegadores diferentes. |
+| 25/09 | Fecham as inscrições de chapas. Vinicius divide as 60 credenciais de teste entre as pessoas da rodada, com explicação de como votar. |
+| 26 e 27/09 | **Rodada 1 de teste**: uma sessão com hora marcada (ou mais), com a urna aberta e encerrada à mão. Algumas pessoas fazem vários votos cada, em sequência, até completar os 60. Testa a experiência (login, cédula, comprovante, celular, redes e navegadores diferentes) e o log. **Não é teste de carga:** 119 votos simultâneos são da etapa 10, por script. |
 | 28/09 | Lista oficial. Criar o banco de produção, gerar as senhas reais e publicar a urna de produção, com endereço diferente da urna de teste. |
 | 28 a 30/09 | Ajustes da rodada 1. |
 | 29/09 a 02/10 | Secretaria distribui as credenciais reais. |
@@ -54,8 +54,34 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 - Participantes: 60 membros da organização.
 - Cédula com chapas de exemplo, não as reais.
 - Banco Neon separado: projeto `urna-teste`, nem o de dev nem o da eleição.
-- O carimbo de ambiente passa a ter três valores: `dev`, `teste`,
-  `producao` (ver seção 4). Os testes automáticos só rodam contra `dev`.
+- O carimbo de ambiente tem três valores: `dev`, `teste`, `producao` (ver
+  seção 4). Os testes automáticos só rodam contra `dev`.
+
+**Operação do banco da rodada** (scripts em `rodada/`, rodados na pasta do
+projeto com `Rscript rodada/<script>.R`):
+
+- Os scripts leem `URNA_TESTE_PG_HOST`, `_DB`, `_USER`, `_PASSWORD`,
+  `_PORT`, `_SSLMODE` do `.Renviron`, e nunca `URNA_PG_*` (que continuam
+  apontando para o dev). Sem elas, param. Todos exigem o carimbo `teste`.
+- O app publicado lê só `URNA_PG_*`: no Connect Cloud, elas apontam para o
+  urna-teste, com `URNA_AMBIENTE` = `teste`.
+- `01_preparar_banco_rodada.R` — **roda uma vez, e quem roda é o
+  Vinicius** (as senhas vão para pessoas de verdade). Carimba `teste`,
+  cria as tabelas, cadastra as chapas de exemplo, deixa a urna fechada em
+  modo teste, carrega 60 participantes (`rodada-01` a `rodada-60`) e gera
+  `saida/RODADA_senhas_ATIVAS_enviar_aos_participantes.csv` e
+  `saida/RODADA_senhas_RESERVAS_guardar_com_a_mesa.csv`. Recusa banco já
+  preparado. Se falhar no meio: apagar e recriar o projeto no Neon.
+- `abrir_urna_rodada.R`, `encerrar_urna_rodada.R`,
+  `situacao_urna_rodada.R` — enquanto o painel não existe.
+- **Mais de uma sessão:** encerrar → `limpar_votos_rodada.R` → abrir.
+  A limpeza apaga votos, votantes e log e volta a urna para fechada, mas
+  mantém as credenciais: as mesmas 60 senhas valem em todas as sessões e
+  rodadas (a não ser que alguma tenha sido trocada por
+  `trocar_credencial()`). Antes de apagar, grava em `saida/`, com data no
+  nome, o log, a tabela votantes e a tabela votos (ordenada pelo id).
+  Exige a urna fora do estado `aberta` e uma confirmação escrita dentro do
+  script.
 
 Camadas de prioridade, nesta ordem:
 
@@ -203,7 +229,8 @@ create table log (
 );
 ```
 
-Fora do esquema, criada uma vez por `dev/01_preparar_banco.R` e **nunca
+Fora do esquema, criada uma vez por `dev/01_preparar_banco.R` (dev e
+produção) ou por `rodada/01_preparar_banco_rodada.R` (teste), e **nunca
 apagada pelos testes**:
 
 ```sql
@@ -218,8 +245,9 @@ create table ambiente (
 de quem se conecta: é o que impede os testes (que apagam tabelas) de rodarem
 contra a eleição, mesmo com o `.Renviron` errado. O valor `teste` é o banco
 das rodadas de teste (projeto `urna-teste`); os testes automáticos recusam
-tudo que não for `dev`. **Pendente no código:** `R/db.R` e
-`dev/01_preparar_banco.R` ainda só aceitam `dev` e `producao`.
+tudo que não for `dev`. `exigir_ambiente(con, esperado)` para qualquer
+script cujo banco não tenha o carimbo esperado. (O banco urna-dev foi criado
+antes do valor `teste` e aceita só `dev` e `producao`; não faz diferença.)
 
 `login` é o mesmo para as três credenciais do programa; o que muda é a
 senha. Isso torna a trava por programa natural e o e-mail de instrução mais
@@ -315,6 +343,10 @@ Regras: só roda com `urna.estado = 'encerrada'`; `conferir_integridade()`
 antes e depois, e `rollback` se não bater; registra no `log`; roda uma vez
 só.
 
+**Ainda não implementado:** `encerrar_urna()` (`R/urna.R`) só muda o
+estado para `encerrada` e confere a integridade. O embaralhamento é da
+etapa 7.
+
 Limite que permanece, e que o regulamento deve declarar em vez de esconder:
 os backups automáticos do Neon feitos durante a votação ainda contêm a ordem
 original, até o fim da janela de retenção.
@@ -381,7 +413,8 @@ Como é feito (`R/comprovante.R`):
   rodado uma vez no computador do responsável, para que as 357 senhas em
   texto nunca passem pelo servidor.
 
-- Estado da urna e botões de abrir / encerrar
+- Estado da urna e botões de abrir / encerrar (`abrir_urna()`,
+  `encerrar_urna()` e `situacao_urna()` já existem em `R/urna.R`)
 - Lista de credenciais: verde = apta e não usada, vermelho = inapta,
   azul = em uso neste momento, cinza = já votou
 - Lista de comprovantes emitidos (programa, hora, qual credencial), com
@@ -437,8 +470,17 @@ elaborada, qualquer coisa não listada acima.
   programas, os dois CSV de senhas, a urna aberta e duas chapas de exemplo. Os testes
   apagam o banco: rode o `03` depois deles.
 - Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`.
-- Tudo o que apaga tabelas mora em `dev/ferramentas_dev.R`, que o app
-  nunca carrega, e passa por `exigir_banco_dev()`.
+- Tudo o que apaga dados mora em `dev/ferramentas_dev.R`, que o app nunca
+  carrega. `zerar_banco_dev()` apaga tabelas e passa por
+  `exigir_banco_dev()`. A única outra é `limpar_votos()`: apaga só votos,
+  votantes e log, só em banco `teste` (ou `dev`, nos testes), nunca em
+  `producao`. **Nenhuma ferramenta apaga todas as tabelas de um banco que
+  não seja o de dev.**
+- **`URNA_AMBIENTE` contra o carimbo:** o app compara essa variável com o
+  carimbo do banco (`conferir_configuracao()`). Se forem diferentes, ou se
+  a variável faltar, ninguém entra: a tela diz só "Urna indisponível — mal
+  configurada", sem detalhe técnico. No `.Renviron` local, `URNA_AMBIENTE`
+  = `dev`; no Connect Cloud, `teste` na rodada e `producao` na eleição.
 - `.gitignore`: `.Renviron`, `*.csv`, `credenciais*.json`, `*.sqlite`.
 
 ---
@@ -485,7 +527,10 @@ pode ser esquecido.
       Connect Cloud quanto crédito as 48 horas de urna aberta consumiram
 - [ ] Senha do banco diferente da de desenvolvimento
 - [ ] `dev/01_preparar_banco.R` rodado com `AMBIENTE <- "producao"`
-- [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`
+- [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`. A urna compara com o
+      carimbo do banco: se a tela de login mostrar "Urna indisponível — mal
+      configurada", a variável ou as `URNA_PG_*` estão erradas. Não abrir a
+      votação até a tela de login aparecer.
 - [ ] `urna.modo` = `oficial` (a zerésima imprime o modo: confira nela)
 - [ ] **A faixa vermelha "URNA DE TESTE — votos sem validade" NÃO aparece**
       na tela de login da urna de produção nem num comprovante de ensaio.
