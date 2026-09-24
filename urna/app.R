@@ -1,6 +1,6 @@
 # Urna ANPOCS 2026 — app do votante
 #
-# Etapas 3b e 4: login, cédula e confirmação. O comprovante é a etapa 5.
+# Etapas 3b, 4 e 5: login, cédula, confirmação e comprovante.
 #
 # Para rodar: shiny::runApp("urna", launch.browser = TRUE)
 #
@@ -42,6 +42,10 @@ RECUSAS_VOTO <- list(
     msg = "Este programa já votou. Este voto não foi registrado.")
 )
 
+# Telas finais (voto depositado, recusa definitiva) voltam sozinhas ao login
+# depois deste tempo: higiene do computador presencial.
+SEGUNDOS_FECHAMENTO <- 60
+
 ui <- page_fixed(
   theme = bs_theme(version = 5),
   title = "Urna ANPOCS 2026",
@@ -69,8 +73,45 @@ ui <- page_fixed(
          var b = document.getElementById('confirma');
          if (b) b.disabled = false;
        });
-     });"
+     });
+
+     // Tela final: conta os segundos na tela e, no fim, clica em Sair.
+     // Se a pessoa sair antes, o elemento some e a contagem para.
+     var urnaTimer = null;
+     function urnaFechamento(segundos) {
+       if (urnaTimer) clearInterval(urnaTimer);
+       var resta = segundos;
+       urnaTimer = setInterval(function() {
+         var el = document.getElementById('contagem');
+         if (!el) { clearInterval(urnaTimer); urnaTimer = null; return; }
+         resta = resta - 1;
+         el.textContent = Math.max(resta, 0);
+         if (resta <= 0) {
+           clearInterval(urnaTimer); urnaTimer = null;
+           var s = document.getElementById('sair');
+           if (s) s.click();
+         }
+       }, 1000);
+     }
+
+     // Download automático do comprovante: espera o link de download ficar
+     // pronto (o Shiny preenche o endereço dele) e clica uma vez.
+     function urnaBaixarComprovante() {
+       var tentativas = 0;
+       var t = setInterval(function() {
+         var a = document.getElementById('comprovante');
+         tentativas++;
+         if (a && a.getAttribute('href') && a.getAttribute('href') !== '#') {
+           clearInterval(t);
+           a.click();
+         } else if (tentativas > 50) {
+           clearInterval(t);   // desiste em silêncio: o botão continua lá
+         }
+       }, 100);
+     }"
   )),
+
+  uiOutput("faixa"),
 
   tags$div(
     style = "max-width: 480px; margin: 3rem auto;",
@@ -202,7 +243,54 @@ server <- function(input, output, session) {
     if (!is.null(a)) tags$div(class = "alert alert-danger mt-3", a)
   })
 
+  # ---- comprovante -------------------------------------------------------
+
+  # Lê do banco a cada download: nada do comprovante fica guardado na sessão,
+  # e o arquivo é o mesmo que o painel reemite.
+  output$comprovante <- downloadHandler(
+    filename = function() {
+      v <- isolate(votante())
+      d <- if (!is.null(v)) dados_comprovante(pool, v$programa_id)
+      if (is.null(d)) "comprovante.pdf"
+      else paste0("comprovante_", d$comprovante_id, ".pdf")
+    },
+    content = function(file) {
+      v <- isolate(votante())
+      d <- if (!is.null(v)) dados_comprovante(pool, v$programa_id)
+      if (is.null(d)) stop("Comprovante indisponível.")
+      gerar_comprovante_pdf(d, file)
+      registrar_log(pool, "comprovante_baixado", v$programa_id)
+    },
+    contentType = "application/pdf"
+  )
+
+  # ---- faixa de teste ----------------------------------------------------
+
+  # Relida a cada troca de tela. Qualquer modo que não seja 'oficial'
+  # (inclusive erro ao ler) mostra a faixa.
+  output$faixa <- renderUI({
+    tela()
+    modo <- tryCatch(ler_modo_urna(pool), error = function(e) NA_character_)
+    if (e_modo_teste(modo)) {
+      tags$div(
+        style = paste("background: #c62828; color: white; font-weight: bold;",
+                      "text-align: center; padding: 0.6rem; font-size: 1.15rem;"),
+        FAIXA_TESTE
+      )
+    }
+  })
+
   # ---- telas -------------------------------------------------------------
+
+  aviso_fechamento <- function() {
+    tagList(
+      tags$p(class = "alert alert-secondary mt-3 mb-3",
+             "Esta tela se fecha sozinha em ",
+             tags$strong(tags$span(id = "contagem", SEGUNDOS_FECHAMENTO)),
+             " segundos."),
+      tags$script(HTML(sprintf("urnaFechamento(%d);", SEGUNDOS_FECHAMENTO)))
+    )
+  }
 
   output$tela <- renderUI({
     switch(tela(),
@@ -244,11 +332,18 @@ server <- function(input, output, session) {
       depositado = tagList(
         tags$div(class = "alert alert-success text-center",
                  tags$h4(class = "mb-0", "VOTO DEPOSITADO")),
-        actionButton("sair", "Sair", class = "btn-outline-secondary")
+        tags$p("O comprovante em PDF está sendo baixado. Ele comprova a ",
+               "participação do programa, não o voto."),
+        downloadButton("comprovante", "Baixar comprovante novamente",
+                       class = "btn-outline-primary w-100"),
+        aviso_fechamento(),
+        actionButton("sair", "Sair", class = "btn-outline-secondary"),
+        tags$script(HTML("urnaBaixarComprovante();"))
       ),
 
       encerrado = tagList(
         tags$div(class = "alert alert-danger", aviso()),
+        aviso_fechamento(),
         actionButton("sair", "Sair", class = "btn-outline-secondary")
       )
     )

@@ -351,6 +351,30 @@ cobrar prova de voto de um coordenador.
 Se o download falhar, o voto já está depositado: não trave a tela nisso. A
 secretaria da ANPOCS reemite pelo painel.
 
+Como é feito (`R/comprovante.R`):
+
+- `dados_comprovante(con, programa_id)` lê nome oficial, identificador,
+  `votantes.votado_em` (a hora gravada pelo banco, não a do app) e o modo
+  da urna. A urna e a reemissão do painel usam essa mesma função.
+- `gerar_comprovante_pdf(dados, arquivo)` depende só desses dados e não
+  recebe a opção de voto. Usa `grDevices::pdf()`, que vem com o R: sem
+  LaTeX, sem navegador, sem pacote extra.
+- **Mesmos dados, mesmo arquivo, byte a byte:** a data interna do PDF é
+  trocada pela hora do voto. (Só vale na mesma versão do R: o PDF registra
+  a versão.)
+- A fonte do PDF só tem Latin-1. `texto_latin1()` junta acento separado da
+  letra, troca travessão, aspas curvas e reticências por equivalentes
+  simples, e o resto que não cabe vira "?". Os acentos do português ficam.
+- O R desenha o hífen como sinal de menos; o PDF é corrigido para que o
+  identificador copiado do PDF seja `XXXX-XXXX-XXXX` com hífen comum.
+- Em modo diferente de `oficial`, toda tela da urna e o comprovante trazem
+  a faixa "URNA DE TESTE — votos sem validade". Na dúvida (modo ilegível),
+  a faixa aparece.
+- A tela de voto depositado baixa o PDF sozinha, tem botão para baixar de
+  novo e volta ao login em 60 segundos, com contagem visível. A tela de
+  recusa definitiva (já votou, credencial trocada) também. O log registra
+  `comprovante_baixado`, com o programa, nunca o voto.
+
 **Painel do mesário** — app `painel`, separado da urna
 
 - A geração em massa das senhas **não** é um botão do painel: é um script
@@ -461,6 +485,10 @@ pode ser esquecido.
 - [ ] `dev/01_preparar_banco.R` rodado com `AMBIENTE <- "producao"`
 - [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`
 - [ ] `urna.modo` = `oficial` (a zerésima imprime o modo: confira nela)
+- [ ] **A faixa vermelha "URNA DE TESTE — votos sem validade" NÃO aparece**
+      na tela de login da urna de produção nem num comprovante de ensaio.
+      Se aparecer no dia 9, a urna está em modo `teste` (ou não consegue
+      ler o modo): não abrir a votação.
 - [ ] `urna.estado` = `fechada` até o mesário abrir
 - [ ] Tabela `votos` vazia, confirmado pela zerésima
 - [ ] Nunca rodar `test_dir()` com o `.Renviron` apontando para este banco
