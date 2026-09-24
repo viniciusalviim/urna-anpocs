@@ -1,5 +1,6 @@
 # Prepara o banco de desenvolvimento para testar a urna NA MAO:
-# 119 programas sinteticos, CSV novo com as senhas, urna aberta, duas chapas.
+# 119 programas sinteticos, CSVs novos com as senhas (ativas e reservas),
+# urna aberta, duas chapas.
 #
 # Rode este script sempre antes de abrir o app para testar. Os testes
 # automaticos apagam o banco inteiro a cada rodada, entao depois de rodar
@@ -36,4 +37,5 @@ print(DBI::dbGetQuery(con, "select numero, nome from chapas order by numero"))
 
 DBI::dbDisconnect(con)
 
-cat("\nPronto. Use as senhas de saida/credenciais_DEV_sinteticas.csv\n")
+cat("\nPronto. Para entrar, use as senhas de", ARQUIVO_ATIVAS,
+    "\n(as de", ARQUIVO_RESERVAS, "so entram depois de trocar_credencial())\n")

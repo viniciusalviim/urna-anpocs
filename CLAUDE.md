@@ -238,12 +238,22 @@ Senha: 8 caracteres sorteados de um alfabeto **sem caracteres ambíguos**
 A verificação tolera minúsculas, hífen e espaços (`normalizar_senha()`).
 
 `carregar_programas()` só roda em banco sem programas: rodar de novo
-geraria senhas novas e o banco deixaria de bater com o CSV entregue. As
+geraria senhas novas e o banco deixaria de bater com os CSV entregues. As
 senhas em texto existem uma única vez, no data.frame que ela devolve.
 
-Todo script que gera senhas confere **antes** que consegue escrever o CSV
-(arquivo aberto no Excel trava a escrita). Senão a carga entraria no banco,
-a escrita falharia depois, e as senhas ficariam só em hash — perdidas.
+As senhas saem em **dois CSV**, separados por `separar_senhas()`:
+
+- `..._senhas_ATIVAS_enviar_aos_coordenadores.csv`: uma por programa (a
+  credencial 1). É o que a secretaria envia aos coordenadores.
+- `..._senhas_RESERVAS_guardar_com_a_mesa.csv`: as credenciais 2 e 3. Fica
+  guardado com a mesa e só é usado junto com `trocar_credencial()`.
+
+Em dev, os nomes começam com `DEV_`.
+
+Todo script que gera senhas confere **antes** que consegue escrever os dois
+CSV (`exigir_escrita()`; arquivo aberto no Excel trava a escrita). Senão a
+carga entraria no banco, a escrita falharia depois, e as senhas ficariam só
+em hash — perdidas.
 
 ---
 
@@ -395,12 +405,12 @@ elaborada, qualquer coisa não listada acima.
 
 - String de conexão do banco e credenciais do Google: variáveis de ambiente
   no Connect Cloud. Nunca no repositório, nunca em `app.R`.
-- O CSV com as senhas reais é gerado **uma vez, localmente**, entregue à
-  secretaria, e nunca entra no repositório nem em nenhuma sessão de
-  trabalho.
+- Os dois CSV com as senhas reais são gerados **uma vez, localmente**. O
+  das ativas vai para a secretaria; o das reservas fica com a mesa.
+  Nenhum dos dois entra no repositório nem em nenhuma sessão de trabalho.
 - Desenvolvimento sempre contra o banco `urna-dev`, com dados sintéticos.
 - Para testar na tela: `dev/03_preparar_urna_dev.R` recria os 119
-  programas, o CSV, a urna aberta e duas chapas de exemplo. Os testes
+  programas, os dois CSV de senhas, a urna aberta e duas chapas de exemplo. Os testes
   apagam o banco: rode o `03` depois deles.
 - Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`.
 - Tudo o que apaga tabelas mora em `dev/ferramentas_dev.R`, que o app

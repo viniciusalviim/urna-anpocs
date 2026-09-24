@@ -33,8 +33,8 @@ verificar_senha <- function(senha, hash) {
 #
 # 'programas' e um data.frame com as colunas: id, nome_oficial, tipo, login.
 # Devolve um data.frame com as senhas EM TEXTO (login, nome_oficial, tipo,
-# ordem, senha). Esse objeto e o unico lugar onde elas existem: grave em CSV
-# e entregue. Nao ha como recupera-las depois.
+# ordem, senha, ativa). Esse objeto e o unico lugar onde elas existem: grave
+# em CSV (separar_senhas) e entregue. Nao ha como recupera-las depois.
 #
 # So roda em banco sem programas. Rodar de novo geraria senhas novas e o banco
 # deixaria de bater com o CSV ja entregue.
@@ -94,8 +94,37 @@ carregar_programas <- function(con, programas) {
     tipo         = programas$tipo[i],
     ordem        = cred$ordem,
     senha        = cred$senha,
+    ativa        = cred$ativa,
     stringsAsFactors = FALSE
   )
+}
+
+# Separa a saída de carregar_programas() nos dois arquivos entregues:
+# - ativas:   uma por programa, a que a secretaria envia aos coordenadores;
+# - reservas: as outras duas, que ficam guardadas com a mesa.
+separar_senhas <- function(saida) {
+  colunas <- c("login", "nome_oficial", "tipo", "ordem", "senha")
+  list(
+    ativas   = saida[saida$ativa,  colunas],
+    reservas = saida[!saida$ativa, colunas]
+  )
+}
+
+# Confere ANTES de gerar senhas que dá para escrever em todos os arquivos.
+# Se um deles estiver aberto no Excel, a escrita falharia DEPOIS da carga,
+# e as senhas ficariam só no banco, em forma de hash, perdidas para sempre.
+exigir_escrita <- function(caminhos) {
+  for (arq in caminhos) {
+    ok <- tryCatch({
+      f <- file(arq, "a"); close(f); TRUE
+    }, error = function(e) FALSE, warning = function(e) FALSE)
+    if (!ok) {
+      stop("Nao consigo escrever em ", arq,
+           ".\nO arquivo esta aberto em outro programa (Excel?) ou a pasta ",
+           "nao existe. Feche e rode de novo.\nNada foi gerado.", call. = FALSE)
+    }
+  }
+  invisible(TRUE)
 }
 
 # Troca a credencial ativa de um programa pela próxima reserva (ex.: senha

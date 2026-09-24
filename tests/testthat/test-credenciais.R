@@ -84,6 +84,46 @@ test_that("carga deixa a credencial 1 ativa e as reservas 2 e 3 inativas", {
   expect_equal(as.vector(table(cred$programa_id[cred$ativa])), rep(1L, 4))
 })
 
+# ---- CSV de ativas e de reservas -----------------------------------------
+
+test_that("separar_senhas põe as ativas num arquivo e as reservas no outro", {
+  con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
+  saida <- carregar_programas(con, programas_sinteticos(4))
+
+  s <- separar_senhas(saida)
+
+  expect_equal(nrow(s$ativas), 4)
+  expect_equal(nrow(s$reservas), 8)
+  expect_true(all(s$ativas$ordem == 1))
+  expect_true(all(s$reservas$ordem %in% 2:3))
+  expect_setequal(s$ativas$login, unique(saida$login))
+
+  # nenhuma senha se perde nem se repete entre os dois
+  expect_setequal(c(s$ativas$senha, s$reservas$senha), saida$senha)
+  expect_length(intersect(s$ativas$senha, s$reservas$senha), 0)
+
+  # as ativas do arquivo são as ativas do banco
+  ativas_banco <- DBI::dbGetQuery(con,
+    "select p.login, c.ordem from credenciais c
+       join programas p on p.id = c.programa_id where c.ativa")
+  expect_equal(sort(paste(s$ativas$login, s$ativas$ordem)),
+               sort(paste(ativas_banco$login, ativas_banco$ordem)))
+
+  # colunas do arquivo, sem a marca interna de ativa
+  for (x in s) {
+    expect_equal(names(x), c("login", "nome_oficial", "tipo", "ordem", "senha"))
+  }
+})
+
+test_that("exigir_escrita aceita pasta gravável e recusa caminho impossível", {
+  d <- tempfile(); dir.create(d); on.exit(unlink(d, recursive = TRUE))
+
+  expect_silent(exigir_escrita(file.path(d, c("a.csv", "b.csv"))))
+  expect_error(exigir_escrita(c(file.path(d, "a.csv"),
+                                file.path(d, "nao-existe", "b.csv"))),
+               "Nada foi gerado")
+})
+
 # ---- trocar_credencial() -------------------------------------------------
 
 test_that("trocar_credencial passa da 1 para a 2 e da 2 para a 3", {
