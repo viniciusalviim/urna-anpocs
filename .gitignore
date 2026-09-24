@@ -9,3 +9,4 @@ credenciais*.json
 *.sqlite
 comprovantes/
 .positai
+.claude/

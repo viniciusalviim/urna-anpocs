@@ -456,7 +456,9 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
    - ~~3b. Tela de login no app `urna`~~ **concluída** — 121 testes no total
 4. ~~Cédula e confirmação~~ **concluída** — 180 testes no total; testada
    na tela. Depois, "branco" trocado por "abstenção" em todo o sistema
-5. Comprovante e reemissão
+5. ~~Comprovante e reemissão~~ **concluída** — 299 testes no total;
+   testada na tela. A reemissão usa `dados_comprovante()` +
+   `gerar_comprovante_pdf()`; falta o botão no painel (etapa 6)
 6. Painel do mesário
 7. Zerésima, boletim, ata, fechamento com embaralhamento, exportação
 8. Espelho no Sheets — **opcional**: o Neon já faz backup
