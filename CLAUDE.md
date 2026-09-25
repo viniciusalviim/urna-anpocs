@@ -39,9 +39,10 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 
 | Data | O quê |
 |---|---|
-| 23 a 25/09 | Construir tudo, na ordem das camadas de prioridade (ver "Rodadas de teste"). Publicação no Connect Cloud no dia 24, antes do painel. |
-| 25/09 | Fecham as inscrições de chapas. Vinicius divide as 60 credenciais de teste entre as pessoas da rodada, com explicação de como votar. |
-| 26 e 27/09 | **Rodada 1 de teste**: uma sessão com hora marcada (ou mais), com a urna aberta e encerrada à mão. Algumas pessoas fazem vários votos cada, em sequência, até completar os 60. Testa a experiência (login, cédula, comprovante, celular, redes e navegadores diferentes) e o log. **Não é teste de carga:** 119 votos simultâneos são da etapa 10, por script. |
+| 23 e 24/09 | Construir, na ordem das camadas de prioridade (ver "Rodadas de teste"). |
+| 25/09 | Painel do mesário e **demonstração da urna e do painel para a organização**, no computador do Vinicius. Fecham as inscrições de chapas. Vinicius divide as 60 credenciais de teste entre as pessoas da rodada, com explicação de como votar. |
+| 26/09 (sáb.) | Publicação no Connect Cloud. |
+| 27/09 (dom.) | **Rodada 1 de teste**: uma sessão com hora marcada (ou mais), com a urna aberta e encerrada à mão. Algumas pessoas fazem vários votos cada, em sequência, até completar os 60. Testa a experiência (login, cédula, comprovante, celular, redes e navegadores diferentes) e o log. **Não é teste de carga:** 119 votos simultâneos são da etapa 10, por script. |
 | 28/09 | Lista oficial. Criar o banco de produção, gerar as senhas reais e publicar a urna de produção, com endereço diferente da urna de teste. |
 | 28 a 30/09 | Ajustes da rodada 1. |
 | 29/09 a 02/10 | Secretaria distribui as credenciais reais. |
@@ -153,9 +154,13 @@ que a mudança está errada, não de que o teste precisa de ajuste.
    meio, ou o voto foi commitado ou não existe.
 8. **Nenhuma senha em texto puro** no banco, no log, no repositório ou na
    tela.
-9. **Em modo `oficial`, nenhuma tela lê conteúdo de voto antes do estado
+9. **Em qualquer modo, nenhuma tela lê conteúdo de voto antes do estado
    `encerrada`.** Não é permissão de usuário: é ausência de caminho de
-   código.
+   código. Só `embaralhar_votos()` e `apurar()` (`R/apuracao.R`) leem a
+   opção, e as duas recusam urna não encerrada. Um teste lê o código de
+   `R/`, `urna/` e `painel/` e falha se qualquer outra função citar a
+   tabela `votos` (além de `conferir_integridade()`, que só conta, e
+   `registrar_voto()`, que só grava).
 10. **A exportação de votos é ordenada pelo UUID aleatório**, nunca por
     ordem de inserção.
 11. **No fechamento, a ordem física da tabela `votos` é destruída.** Ver a
@@ -343,9 +348,13 @@ Regras: só roda com `urna.estado = 'encerrada'`; `conferir_integridade()`
 antes e depois, e `rollback` se não bater; registra no `log`; roda uma vez
 só.
 
-**Ainda não implementado:** `encerrar_urna()` (`R/urna.R`) só muda o
-estado para `encerrada` e confere a integridade. O embaralhamento é da
-etapa 7.
+Implementado em `embaralhar_votos()` (`R/apuracao.R`), chamado pelo botão
+"Embaralhar e apurar" do painel. "Uma vez só" é conferido pelo evento
+`votos_embaralhados` no log (na rodada de teste, `limpar_votos()` apaga o
+log e libera a sessão seguinte). O `create table as` não copia o `not null`
+da opção: a função o recoloca, e um teste confere a estrutura de `votos`
+depois. `apurar()` só roda depois do embaralhamento. `encerrar_urna()` só
+muda o estado; ele não embaralha.
 
 Limite que permanece, e que o regulamento deve declarar em vez de esconder:
 os backups automáticos do Neon feitos durante a votação ainda contêm a ordem
@@ -407,28 +416,41 @@ Como é feito (`R/comprovante.R`):
   recusa definitiva (já votou, credencial trocada) também. O log registra
   `comprovante_baixado`, com o programa, nunca o voto.
 
-**Painel do mesário** — app `painel`, separado da urna
+**Painel do mesário** — app `painel/app.R`, separado da urna
 
 - A geração em massa das senhas **não** é um botão do painel: é um script
   rodado uma vez no computador do responsável, para que as 357 senhas em
   texto nunca passem pelo servidor.
 
-- Estado da urna e botões de abrir / encerrar (`abrir_urna()`,
-  `encerrar_urna()` e `situacao_urna()` já existem em `R/urna.R`)
-- Lista de credenciais: verde = apta e não usada, vermelho = inapta,
-  azul = em uso neste momento, cinza = já votou
-- Lista de comprovantes emitidos (programa, hora, qual credencial), com
-  reemissão
+- **Acesso:** confere `URNA_AMBIENTE` contra o carimbo, como a urna, e
+  pede a senha do mesário. Só o hash fica guardado, em `URNA_MESARIO_HASH`
+  (em hexadecimal: o hash do sodium tem `$`, que o `.Renviron` poderia
+  interpretar). Gerar com `source("dev/gerar_hash_mesario.R")` no RStudio.
+  Sem a variável, ninguém entra. O log registra `painel_login_ok` e
+  `painel_login_falhou`, nunca o que foi digitado.
+- Estado da urna e botão de abrir / encerrar, com janela de confirmação
+  (`abrir_urna()`, `encerrar_urna()`, `situacao_urna()` em `R/urna.R`)
+- Lista de programas (`listar_programas()`, `R/painel.R`), atualizada a
+  cada 5 segundos: login, nome, credencial ativa, situação e hora do voto.
+  Verde = apto e não votou, azul = entrou na urna (login aceito depois da
+  abertura) e não votou, cinza = já votou, vermelho = inapto
 - **Trocar para a credencial reserva** (ex.: senha mandada ao e-mail
-  errado): botão que chama `trocar_credencial()`. A credencial antiga deixa
-  de valer na mesma transação em que a reserva passa a valer. Substitui o
-  "revogar credencial" planejado antes.
+  errado): aba que chama `trocar_credencial()`, com confirmação. A
+  credencial antiga deixa de valer na mesma transação em que a reserva
+  passa a valer.
+- **Reemitir comprovante:** aba que baixa o PDF de um programa que já
+  votou, por `dados_comprovante()` + `gerar_comprovante_pdf()`. Log
+  `comprovante_reemitido`.
 - **Gerar senha nova** para uma credencial de um programa que perdeu as
   três. A senha nova aparece uma vez na tela e não fica guardada.
+  **Não construído.**
 - **Verificação de integridade ao vivo:** `count(votantes)` vs
-  `count(votos)` — só um sinal verde ou vermelho, nunca conteúdo
+  `count(votos)` — só um sinal verde ou vermelho, e "X de Y aptos já
+  votaram". Nunca conteúdo.
 - **Nunca apuração parcial.** O placar subindo ao lado de quem está votando
-  entrega o voto.
+  entrega o voto. Com a urna encerrada, o botão "Embaralhar e apurar"
+  mostra a integridade antes e depois do embaralhamento e a apuração: total
+  por chapa (inclusive zero), abstenções, votantes e aptos.
 
 **Apuração**
 
@@ -469,7 +491,13 @@ elaborada, qualquer coisa não listada acima.
 - Para testar na tela: `dev/03_preparar_urna_dev.R` recria os 119
   programas, os dois CSV de senhas, a urna aberta e duas chapas de exemplo. Os testes
   apagam o banco: rode o `03` depois deles.
-- Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`.
+- Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`;
+  o painel: `shiny::runApp("painel", launch.browser = TRUE)`.
+- **Urna e painel juntos** (demonstração): dois cliques em
+  `dev/demonstracao.bat`. Abre duas janelas pretas (urna na porta 8001,
+  painel na 8002) e as duas abas do navegador. Para parar, fechar as
+  janelas pretas. Para a urna começar fechada, `ESTADO_URNA <- "fechada"`
+  no topo do `dev/03` antes de rodá-lo.
 - Tudo o que apaga dados mora em `dev/ferramentas_dev.R`, que o app nunca
   carrega. `zerar_banco_dev()` apaga tabelas e passa por
   `exigir_banco_dev()`. A única outra é `limpar_votos()`: apaga só votos,
@@ -501,11 +529,15 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 5. ~~Comprovante e reemissão~~ **concluída** — 299 testes no total;
    testada na tela. A reemissão usa `dados_comprovante()` +
    `gerar_comprovante_pdf()`; falta o botão no painel (etapa 6)
-6. Painel do mesário
+6. ~~Painel do mesário~~ **concluída** — 530 testes no total; testado no
+   navegador (abrir, votar, lista, troca de credencial, encerrar, apurar,
+   reemitir). Falta só "gerar senha nova"
 7. Zerésima, boletim, ata, fechamento com embaralhamento, exportação
+   - ~~fechamento com embaralhamento e apuração~~ **feitos** junto com a
+     etapa 6 (`R/apuracao.R`)
+   - faltam: zerésima, boletim, ata, exportação
 8. Espelho no Sheets — **opcional**: o Neon já faz backup
-9. Publicação no Connect Cloud — **antecipada para 24/09**, antes do
-   painel (etapa 6), para a rodada 1 de teste
+9. Publicação no Connect Cloud — **26/09**, para a rodada 1 de teste (27/09)
 10. Simulação completa com 119 votos e gente de fora testando
 
 ---
@@ -526,6 +558,10 @@ pode ser esquecido.
 - [ ] Depois da rodada 1 de teste, conferir na página de uso da conta do
       Connect Cloud quanto crédito as 48 horas de urna aberta consumiram
 - [ ] Senha do banco diferente da de desenvolvimento
+- [ ] **Senha do mesário da eleição diferente** da usada na demonstração e
+      na rodada de teste, e conhecida só pelo Vinicius e pela segunda
+      pessoa treinada. Gerar o hash novo com `dev/gerar_hash_mesario.R` e
+      pôr em `URNA_MESARIO_HASH` onde o painel de produção roda
 - [ ] `dev/01_preparar_banco.R` rodado com `AMBIENTE <- "producao"`
 - [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`. A urna compara com o
       carimbo do banco: se a tela de login mostrar "Urna indisponível — mal
