@@ -5,6 +5,8 @@
 renv/library/
 *.csv
 *.tsv
+*.pdf
+saida/
 credenciais*.json
 *.sqlite
 comprovantes/

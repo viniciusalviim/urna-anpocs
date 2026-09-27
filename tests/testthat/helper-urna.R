@@ -11,6 +11,7 @@ for (f in sort(list.files(file.path("..", "..", "R"),
 }
 source(file.path("..", "..", "dev", "ferramentas_dev.R"))
 source(file.path("..", "..", "dev", "exemplos.R"))
+source(file.path("..", "..", "dev", "papeis.R"))
 
 CAMINHO_SCHEMA <- file.path("..", "..", "sql", "001_schema.sql")
 

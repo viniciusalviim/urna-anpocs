@@ -10,8 +10,10 @@
 library(shiny)
 library(bslib)
 
-# Funções compartilhadas com o painel (uma pasta acima).
-for (f in sort(list.files("../R", pattern = "\\.R$", full.names = TRUE))) {
+# Funções compartilhadas com o painel: em ../R quando o app roda da pasta
+# dele, em R quando roda da raiz do repositório.
+PASTA_R <- if (dir.exists("../R")) "../R" else "R"
+for (f in sort(list.files(PASTA_R, pattern = "\\.R$", full.names = TRUE))) {
   source(f)
 }
 
@@ -49,6 +51,21 @@ SEGUNDOS_FECHAMENTO <- 60
 ui <- page_fixed(
   theme = bs_theme(version = 5),
   title = "Urna ANPOCS 2026",
+
+  estilo_celular(),
+
+  tags$script(HTML(
+    "// Botão de olho: mostra ou esconde a senha digitada.
+     function urnaMostrarSenha(b) {
+       var s = document.getElementById('senha');
+       if (!s) return;
+       var mostrar = s.type === 'password';
+       s.type = mostrar ? 'text' : 'password';
+       b.setAttribute('aria-label', mostrar ? 'Esconder senha' : 'Mostrar senha');
+       var i = b.querySelector('i');
+       if (i) { i.classList.toggle('fa-eye', !mostrar); i.classList.toggle('fa-eye-slash', mostrar); }
+     }"
+  )),
 
   tags$script(HTML(
     "// Enter envia o formulário de login (e só ele).
@@ -114,7 +131,7 @@ ui <- page_fixed(
   uiOutput("faixa"),
 
   tags$div(
-    style = "max-width: 480px; margin: 3rem auto;",
+    class = "urna-caixa",
     tags$h3("Eleição ANPOCS 2026"),
     tags$p(class = "text-muted",
            "Conselho Diretivo e Conselho Fiscal — biênio 2027–2028"),
@@ -312,14 +329,12 @@ server <- function(input, output, session) {
     switch(tela(),
 
       login = tagList(
-        textInput("login", "Login do programa", width = "100%"),
-        passwordInput("senha", "Senha", width = "100%"),
-        actionButton("entrar", "Entrar", class = "btn-primary w-100"),
+        campo_login(),
+        campo_senha(),
+        actionButton("entrar", "Entrar", class = "btn-primary btn-lg w-100"),
         if (!is.null(aviso())) {
           tags$div(class = "alert alert-danger mt-3", aviso())
-        },
-        tags$p(class = "text-muted small mt-3 mb-0",
-               "Recomendamos votar pelo computador.")
+        }
       ),
 
       cedula = {
@@ -336,9 +351,9 @@ server <- function(input, output, session) {
           tags$div(
             class = "d-flex gap-2 mt-3",
             if (isTRUE(ced$permite_abstencao)) {
-              actionButton("abstencao", "ABSTENÇÃO", class = "btn-outline-dark flex-fill")
+              actionButton("abstencao", "ABSTENÇÃO", class = "btn-outline-dark btn-lg flex-fill")
             },
-            actionButton("corrige", "CORRIGE", class = "btn-warning flex-fill")
+            actionButton("corrige", "CORRIGE", class = "btn-warning btn-lg flex-fill")
           ),
           uiOutput("escolha"),
           uiOutput("aviso_voto")
@@ -351,7 +366,8 @@ server <- function(input, output, session) {
         tags$p("O comprovante em PDF está sendo baixado. Ele comprova a ",
                "participação do programa, não o voto."),
         downloadButton("comprovante", "Baixar comprovante novamente",
-                       class = "btn-outline-primary w-100"),
+                       class = "btn-outline-primary btn-lg w-100"),
+        tags$div(class = "mt-3", aviso_comprovante_iphone()),
         aviso_fechamento(),
         actionButton("sair", "Sair", class = "btn-outline-secondary"),
         tags$script(HTML("urnaBaixarComprovante();"))

@@ -23,8 +23,28 @@ comissão eleitoral que não programa.
 | Janela | ~30 minutos, abertura e fechamento manuais pelo mesário |
 | Eleitores | até 119 Programas de Pós-Graduação **e Centros de Pesquisa** |
 | Voto | 1 por associado, exercido pelo Coordenador(a) ou Vice em exercício |
-| Cédula | chapas numeradas (1..N) + abstenção |
+| Cédula | **chapa única** (número 1) + abstenção |
 | Credenciais | 3 por programa; só 1 ativa (a distribuída), 2 reservas inativas |
+| Votação | **híbrida**: na sala, cada pessoa vota pelo próprio celular (papel com login, senha e QR code) ou no computador dedicado; online, pelo computador ou pelo celular |
+
+### Decisões da reunião com a organização (25/09)
+
+- Haverá **uma chapa só**. A **abstenção fica**.
+- **Hospedagem toda gratuita:** Connect Cloud gratuito e Neon gratuito. O
+  repositório fica **público**, e o sistema é apresentado como de código
+  aberto.
+- Na versão final, as contas do Connect Cloud e do Neon de produção ficam
+  num **e-mail criado só para a eleição**.
+- **Votação híbrida.** Na sala, cada pessoa vota pelo próprio celular:
+  recebe um papel com o login, a senha e um QR code que abre a urna. O
+  computador dedicado continua na sala, para quem precisar. Online, votam
+  pelo computador ou pelo celular. **O celular é um caminho principal**,
+  não uma alternativa.
+- **Regra do papel:** a credencial do papel é a **mesma credencial ativa**
+  enviada por e-mail (uma ou outra, o voto é um só). O papel é **entregue
+  em mãos ao coordenador ou vice identificado**. Os papéis que sobrarem são
+  **destruídos**. O QR code tem só o endereço da urna, igual para todos:
+  login e senha são sempre digitados, nunca vão na URL.
 
 Duas datas do regimento travam o cronograma:
 
@@ -41,9 +61,9 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 |---|---|
 | 23 e 24/09 | Construir, na ordem das camadas de prioridade (ver "Rodadas de teste"). |
 | 25/09 | Painel do mesário e **demonstração da urna e do painel para a organização**, no computador do Vinicius. Fecham as inscrições de chapas. Vinicius divide as 60 credenciais de teste entre as pessoas da rodada, com explicação de como votar. |
-| 26/09 (sáb.) | Publicação no Connect Cloud. |
-| 27/09 (dom.) | **Rodada 1 de teste**: uma sessão com hora marcada (ou mais), com a urna aberta e encerrada à mão. Algumas pessoas fazem vários votos cada, em sequência, até completar os 60. Testa a experiência (login, cédula, comprovante, celular, redes e navegadores diferentes) e o log. **Não é teste de carga:** 119 votos simultâneos são da etapa 10, por script. |
-| 28/09 | Lista oficial. Criar o banco de produção, gerar as senhas reais e publicar a urna de produção, com endereço diferente da urna de teste. |
+| 27/09 (dom.) | Ajustes da urna para celular; papel com QR code; preparação da publicação. |
+| 28/09 (seg.) | Lista oficial. **Publicação** no Connect Cloud (urna de teste e painel). Criar o banco de produção, gerar as senhas reais e publicar a urna de produção, com endereço diferente da urna de teste. |
+| 29 ou 30/09 (ter. ou qua.) | **Rodada 1 de teste, com papel e celular**: uma sessão com hora marcada (ou mais), com a urna aberta e encerrada à mão. Algumas pessoas fazem vários votos cada, em sequência, até completar os 60. Testa a experiência (login, cédula, comprovante, papel com QR code, celulares e computadores, redes e navegadores diferentes) e o log. **Não é teste de carga:** 119 votos simultâneos são da etapa 10, por script. |
 | 28 a 30/09 | Ajustes da rodada 1. |
 | 29/09 a 02/10 | Secretaria distribui as credenciais reais. |
 | 01 e 02/10 | **Rodada 2 de teste**, com janela de 30 minutos marcada. Ensaia a assembleia: pico de acessos, mesário abrindo e encerrando pelo painel, apuração na hora. |
@@ -102,8 +122,16 @@ Camadas de prioridade, nesta ordem:
 - R + Shiny (`bslib` para UI)
 - PostgreSQL gerenciado no Neon — `DBI` + `RPostgres` + `pool`
 - Senhas: `sodium::password_store()` (scrypt), nunca texto puro
-- Hospedagem: Posit Connect Cloud (tem variáveis secretas; shinyapps.io não)
-- `renv` para travar versões de pacotes
+- Hospedagem: Posit Connect Cloud, **plano gratuito** (tem variáveis
+  secretas; shinyapps.io não). Banco: Neon, **plano gratuito**.
+- Pacotes: o Connect Cloud **não usa `renv`**. Ele instala o que está no
+  `manifest.json` de cada app (`urna/` e `painel/`), gerado por
+  `rsconnect::writeManifest("urna")` e `rsconnect::writeManifest("painel")`.
+  Esse comando só procura pacotes dentro da pasta do app; por isso cada app
+  tem um `dependencias.R` com um `library()` para cada pacote usado em
+  `R/`. O teste `test-publicacao.R` falha se faltar algum no
+  `dependencias.R` ou no `manifest.json`. **Mudou pacote: rodar
+  `writeManifest` de novo e commitar.**
 - Testes: `testthat`
 - Horários: a conexão devolve tudo no fuso `America/Sao_Paulo` (definido
   em `R/db.R`, coberto por `test-db.R`). Nenhuma tela converte fuso.
@@ -116,7 +144,12 @@ Camadas de prioridade, nesta ordem:
 Motivos: quem vota nunca chega perto do código do painel; e o Shiny faz
 uma coisa de cada vez por processo — conferir senha é lento de propósito,
 e com 119 logins no mesmo minuto um app único deixaria o painel congelado.
-As funções compartilhadas moram em `R/`; cada app só tem a sua tela.
+As funções compartilhadas moram em `R/`; cada app só tem a sua tela. Cada
+app procura `R/` em `../R` (rodando da pasta dele) ou em `R` (rodando da
+raiz do repositório). **A confirmar na primeira publicação:** se o Connect
+Cloud leva a pasta `R/` junto com o app. O `manifest.json` lista só os
+arquivos da pasta do app. Se a pasta `R/` não for junto, o plano B é copiar
+`R/` para dentro de cada app antes de publicar.
 
 Proibido: `shinylive` (roda no navegador, sem servidor, sem banco central —
 inviável para eleição). SQLite. Google Sheets como banco primário.
@@ -129,7 +162,16 @@ da ANPOCS não serve, porque a senha do banco ficaria exposta no navegador.
 O plano gratuito do Connect Cloud exige repositório público. Antes de
 torná-lo público, conferir no histórico do Git (não só no estado atual) que
 nenhum arquivo de segredo foi commitado: `.Renviron`, CSV de senhas,
-`credenciais*.json`.
+`credenciais*.json`, PDFs de papéis ou comprovantes.
+
+**Conferido em 27/09/2026:**
+- nenhum desses arquivos jamais foi commitado;
+- nenhum commit contém `neon.tech`, `postgres://` ou `PASSWORD=`;
+- as únicas senhas no formato `XXXX-XXXX` no histórico são exemplos dos
+  testes (`K7PM-3XWQ`, `AAAA-AAAA`, `ZZZZ-9999`).
+
+Refazer a conferência se o repositório receber commits de outra máquina
+antes de ficar público.
 
 ---
 
@@ -366,6 +408,18 @@ original, até o fim da janela de retenção.
 
 **Votante**
 
+0. **Celular é caminho principal** (`R/tela.R`):
+   - letra de 16 px nos campos, para o iPhone não dar zoom;
+   - botões com pelo menos 48 px de altura;
+   - texto longo quebra linha, sem rolagem lateral (conferido a 375 px de
+     largura);
+   - login e senha sem maiúscula automática, sem corretor, sem sugestão;
+   - **botão de olho** para mostrar ou esconder a senha;
+   - teclado numérico no campo do número;
+   - no iPhone, aviso de como salvar o comprovante se ele abrir numa aba.
+   
+   **Nada é lido da URL:** um teste falha se a urna usar
+   `parseQueryString`, `url_search` ou `clientData$url`.
 1. Login (login do programa + senha), por `autenticar()`:
    - login inexistente e senha errada dão **a mesma resposta**;
    - "já votou" só aparece **depois** da senha certa;
@@ -509,7 +563,18 @@ elaborada, qualquer coisa não listada acima.
   a variável faltar, ninguém entra: a tela diz só "Urna indisponível — mal
   configurada", sem detalhe técnico. No `.Renviron` local, `URNA_AMBIENTE`
   = `dev`; no Connect Cloud, `teste` na rodada e `producao` na eleição.
-- `.gitignore`: `.Renviron`, `*.csv`, `credenciais*.json`, `*.sqlite`.
+- **Papéis para imprimir:** `Rscript dev/gerar_papeis.R`, só no
+  computador do responsável.
+  - No topo do script: `ENDERECO_URNA` (https, sem `?` nem `#`),
+    `ARQUIVO_ATIVAS` e `ARQUIVO_PDF`.
+  - Gera uma página A4 por programa, com nome, login, senha e um QR code só
+    com o endereço da urna.
+  - Recusa o arquivo de reservas.
+  - Arquivos `RODADA_` ou `DEV_` saem com a faixa "CREDENCIAL DE TESTE".
+  - O PDF contém senhas: apagar depois de imprimir.
+  - Precisa do pacote `qrcode`, só local; ele não vai para o Connect Cloud.
+- `.gitignore`: `.Renviron`, `*.csv`, `*.pdf`, `saida/`,
+  `credenciais*.json`, `*.sqlite`.
 
 ---
 
@@ -537,7 +602,12 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
      etapa 6 (`R/apuracao.R`)
    - faltam: zerésima, boletim, ata, exportação
 8. Espelho no Sheets — **opcional**: o Neon já faz backup
-9. Publicação no Connect Cloud — **26/09**, para a rodada 1 de teste (27/09)
+9. Publicação no Connect Cloud — **28/09**, para a rodada 1 de teste
+   - ~~preparação~~ **feita em 27/09**:
+     - `manifest.json` e `dependencias.R` da urna e do painel;
+     - conferência do histórico do Git;
+     - `saida/` e `*.pdf` no `.gitignore`.
+   - falta: publicar e confirmar que a pasta `R/` vai junto (seção 2)
 10. Simulação completa com 119 votos e gente de fora testando
 
 ---
@@ -548,15 +618,19 @@ O banco da eleição é um **projeto Neon separado** do de desenvolvimento,
 criado perto da data. Nada abaixo se aplica ao banco de dev — e nada abaixo
 pode ser esquecido.
 
-- [ ] Projeto novo no Neon, nome `urna-eleicao`, região São Paulo
-- [ ] **Plano pago (Launch) contratado para outubro**, e o *scale to zero*
-      desativado nas configurações do compute. No plano gratuito isso é
-      impossível: o banco hiberna após 5 minutos de inatividade. Cancelar em
-      novembro.
-- [ ] **Plano Basic do Connect Cloud assinado para outubro.** Cancelar em
-      novembro.
-- [ ] Depois da rodada 1 de teste, conferir na página de uso da conta do
-      Connect Cloud quanto crédito as 48 horas de urna aberta consumiram
+- [ ] **Contas do Neon e do Connect Cloud de produção no e-mail criado só
+      para a eleição**, não no e-mail pessoal
+- [ ] Projeto novo no Neon (plano gratuito), nome `urna-eleicao`, região
+      São Paulo
+- [ ] **O Neon gratuito dorme depois de 5 minutos sem uso**, e a primeira
+      conexão depois disso demora alguns segundos. No dia 9, abrir o painel
+      bem antes das 19h30 e deixá-lo aberto: ele consulta o banco a cada 5
+      segundos, e o banco não dorme
+- [ ] **Limites do Connect Cloud gratuito** (memória, horas de uso, muitas
+      pessoas entrando ao mesmo tempo): medir na rodada 1 e no teste de
+      carga da etapa 10, antes de confiar neles no dia 9
+- [ ] Repositório público: refazer a conferência do histórico do Git
+      (seção 2) antes de tornar público
 - [ ] Senha do banco diferente da de desenvolvimento
 - [ ] **Senha do mesário da eleição diferente** da usada na demonstração e
       na rodada de teste, e conhecida só pelo Vinicius e pela segunda
@@ -599,10 +673,15 @@ Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
 - **Distribuição das credenciais pela secretaria da ANPOCS**, com aviso
   prévio por canal oficial de qual é o endereço da urna (senão parece
   phishing — e com razão).
-- **Recomendar o computador, com ênfase**, nas instruções da rodada de
-  teste e nas da eleição. A tela de login já traz a linha discreta
-  "Recomendamos votar pelo computador."; as instruções precisam dizer isso
-  com destaque.
+- **Papéis com a credencial**, impressos por `dev/gerar_papeis.R`:
+  - antes de imprimir tudo, conferir um papel lendo o QR code com um
+    celular;
+  - entregar cada papel em mãos ao coordenador ou vice identificado;
+  - destruir os que sobrarem;
+  - apagar o PDF.
+- **Instruções da rodada e da eleição:** o celular é um caminho principal.
+  Explicar o QR code do papel e o botão de olho da senha. No iPhone, o
+  comprovante pode abrir numa aba: a tela explica como salvar.
 - **Uma segunda pessoa treinada** para operar o painel do mesário no dia 9.
 - **Higiene do computador presencial:** o eleitor digita a própria senha, e
   a sessão se encerra sozinha depois do "voto depositado".

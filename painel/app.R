@@ -12,8 +12,10 @@
 library(shiny)
 library(bslib)
 
-# Funções compartilhadas com a urna (uma pasta acima).
-for (f in sort(list.files("../R", pattern = "\\.R$", full.names = TRUE))) {
+# Funções compartilhadas com a urna: em ../R quando o app roda da pasta
+# dele, em R quando roda da raiz do repositório.
+PASTA_R <- if (dir.exists("../R")) "../R" else "R"
+for (f in sort(list.files(PASTA_R, pattern = "\\.R$", full.names = TRUE))) {
   source(f)
 }
 
