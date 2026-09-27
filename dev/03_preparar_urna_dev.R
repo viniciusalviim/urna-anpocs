@@ -4,7 +4,7 @@
 
 # "aberta": pronta para votar.
 # "fechada": para abrir pelo painel (ex.: na demonstracao).
-ESTADO_URNA <- "aberta"
+ESTADO_URNA <- "fechada"
 #
 # Rode este script sempre antes de abrir o app para testar. Os testes
 # automaticos apagam o banco inteiro a cada rodada, entao depois de rodar
