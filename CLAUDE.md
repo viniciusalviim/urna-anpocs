@@ -562,15 +562,31 @@ original, até o fim da janela de retenção.
    ABSTENÇÃO (só se `urna.permite_abstencao`) escreve "abstenção" no campo;
    o valor gravado em `votos.opcao` é `abstencao`, sem acento. Não existe
    voto "branco" no sistema.
-   - Os membros aparecem **agrupados pelo cargo**, na ordem da chapa, cada
-     um como "Nome (Instituição)" (`agrupar_membros()`, `cartao_opcao()`).
-   - **O CONFIRMA fica fixo na parte de baixo da tela** enquanto a lista de
-     membros está à vista. Com 13 nomes, ele sairia da tela do celular. Por
-     isso a página usa `overflow-x: clip`, e não `hidden`, que impediria o
-     botão de ficar fixo.
-   - Conferido em 08/10 a 375 px de largura, numa prévia sem banco: sem
-     rolagem lateral, nomes com 16 px, botão sempre visível e sem cobrir o
-     último nome.
+   - De cima para baixo, no cartão da chapa: o **número** e o **nome** da
+     chapa; o aviso discreto "role para ver todos os membros"; a **caixa
+     dos membros**, de altura fixa e com rolagem própria; o **CONFIRMAR**.
+     A tela não cresce com os 13 nomes (`cartao_opcao()`, `R/tela.R`).
+   - Dentro da caixa, os membros ficam **agrupados pelo cargo**, na ordem
+     da chapa, cada um como "Nome (Instituição)" (`agrupar_membros()`). Um
+     esmaecido na borda de baixo mostra que há mais nomes.
+   - A altura da caixa é a que a tela comporta, sem depender do número de
+     nomes: altura da janela menos ~34rem, entre 6rem e 16rem (`dvh`, que
+     desconta a barra de endereço do celular).
+   - **Conferido em 08/10, numa prévia sem banco, com o nome oficial mais
+     longo e a faixa de teste:** número, nome da chapa, caixa e CONFIRMAR
+     cabem na tela sem rolar a página, e não há rolagem lateral. A caixa
+     ficou com:
+     - 256 px a 375 × 812;
+     - 123 px a 375 × 667;
+     - 176 px a 1280 × 720;
+     - 114 px a 1366 × 657.
+   - O CONFIRMA ainda fica fixo na parte de baixo da tela, como reserva
+     para telas mais baixas que essas. Por isso a página usa
+     `overflow-x: clip`, e não `hidden`, que impediria o botão de ficar
+     fixo.
+   - A urna monta o topo e a cédula com `cabecalho_urna()`,
+     `faixa_teste_html()`, `cabecalho_cedula()` e `cartao_opcao()`, as
+     mesmas funções usadas na prévia.
 3. "VOTO DEPOSITADO" + download automático do comprovante.
 
 **Comprovante**: nome oficial do programa, data, hora com segundos,
@@ -784,8 +800,9 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 e correções, chapa única, script único de preparação
 (`preparar/preparar_banco.R`) e simulação de carga. Depois, PIN de 1000 a
 9999, sem zero na frente; login da UFGD; chapa oficial com 13 membros nos
-dois sistemas. 1222 verificações nos testes, todas passando (incluindo as
-que leem a lista oficial).
+dois sistemas; novo layout do papel, com o logo; cédula com caixa de
+rolagem. 1254 verificações nos testes, todas passando (incluindo as que
+leem a lista oficial).
 
 ---
 

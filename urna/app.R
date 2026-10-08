@@ -132,10 +132,7 @@ ui <- page_fixed(
 
   tags$div(
     class = "urna-caixa",
-    tags$h3("Eleição ANPOCS 2026"),
-    tags$p(class = "text-muted",
-           "Conselho Diretivo e Conselho Fiscal — biênio 2027–2028"),
-    tags$hr(),
+    cabecalho_urna(),
     uiOutput("tela")
   )
 )
@@ -275,13 +272,7 @@ server <- function(input, output, session) {
   output$faixa <- renderUI({
     tela()
     modo <- tryCatch(ler_modo_urna(pool), error = function(e) NA_character_)
-    if (e_modo_teste(modo)) {
-      tags$div(
-        style = paste("background: #c62828; color: white; font-weight: bold;",
-                      "text-align: center; padding: 0.6rem; font-size: 1.15rem;"),
-        FAIXA_TESTE
-      )
-    }
+    if (e_modo_teste(modo)) faixa_teste_html()
   })
 
   # ---- telas -------------------------------------------------------------
@@ -322,20 +313,8 @@ server <- function(input, output, session) {
         v   <- isolate(votante())
         ced <- isolate(cedula())
         tagList(
-          tags$p(class = "text-muted mb-3",
-                 "Votando como: ", tags$strong(v$nome_oficial)),
-          tags$label(`for` = "numero", class = "form-label",
-                     "Digite o número da chapa"),
-          tags$input(id = "numero", type = "text", class = "form-control form-control-lg",
-                     inputmode = "numeric", pattern = "[0-9]*",
-                     autocomplete = "off", value = ""),
-          tags$div(
-            class = "d-flex gap-2 mt-3",
-            if (isTRUE(ced$permite_abstencao)) {
-              actionButton("abstencao", "ABSTENÇÃO", class = "btn-outline-dark btn-lg flex-fill")
-            },
-            actionButton("corrige", "CORRIGE", class = "btn-warning btn-lg flex-fill")
-          ),
+          # Quem vota, o campo do número e ABSTENÇÃO / CORRIGE (R/tela.R).
+          cabecalho_cedula(v$nome_oficial, ced$permite_abstencao),
           uiOutput("escolha"),
           uiOutput("aviso_voto")
         )

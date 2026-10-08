@@ -101,6 +101,45 @@ test_that("o cartão da chapa mostra os 13 nomes na ordem dos cargos", {
   }
 })
 
+test_that("os membros ficam numa caixa de altura fixa, com rolagem própria", {
+  h <- html(cartao_opcao(descrever_opcao(cedula_oficial(), "1")))
+  # acima da caixa: número e nome da chapa; o aviso discreto; a caixa com
+  # o esmaecido embaixo; depois, o CONFIRMAR
+  ordem <- c("urna-chapa-numero", "Chapa 1", "role para ver todos os membros",
+             'class="urna-membros"', "Presidência", "Conselho Fiscal",
+             'class="urna-membros-esmaecido"', 'id="confirma"')
+  pos <- vapply(ordem, function(x) regexpr(x, h, fixed = TRUE)[1], numeric(1))
+  expect_true(all(pos > 0), info = paste(ordem[pos < 0], collapse = ", "))
+  expect_false(is.unsorted(pos))
+  expect_match(h, "Número 1", fixed = TRUE)
+
+  e <- html(estilo_celular())
+  expect_match(e, ".urna-membros {", fixed = TRUE)
+  expect_match(e, "overflow-y: auto", fixed = TRUE)
+  expect_match(e, "linear-gradient", fixed = TRUE)
+})
+
+test_that("na abstenção não há caixa de membros nem aviso de rolagem", {
+  h <- html(cartao_opcao(descrever_opcao(cedula_oficial(), TEXTO_ABSTENCAO)))
+  expect_false(grepl("urna-membros", h, fixed = TRUE))
+  expect_false(grepl("role para ver", h, fixed = TRUE))
+  expect_false(grepl("Número", h, fixed = TRUE))
+})
+
+test_that("a urna monta a cédula com as peças de R/tela.R", {
+  codigo <- app_urna()
+  expect_match(codigo, "cabecalho_urna()", fixed = TRUE)
+  expect_match(codigo, "cabecalho_cedula(", fixed = TRUE)
+  expect_match(codigo, "faixa_teste_html()", fixed = TRUE)
+  h <- html(cabecalho_cedula("Programa X – USP", TRUE))
+  expect_match(h, "Votando como")
+  expect_match(h, 'id="numero"', fixed = TRUE)
+  expect_match(h, 'inputmode="numeric"', fixed = TRUE)
+  expect_match(h, 'id="abstencao"', fixed = TRUE)
+  expect_match(h, 'id="corrige"', fixed = TRUE)
+  expect_false(grepl('id="abstencao"', html(cabecalho_cedula("X", FALSE)), fixed = TRUE))
+})
+
 test_that("o CONFIRMA fica fixo na parte de baixo da tela, sempre à vista", {
   h <- html(cartao_opcao(descrever_opcao(cedula_oficial(), "1")))
   expect_match(h, 'class="urna-confirma"', fixed = TRUE)
