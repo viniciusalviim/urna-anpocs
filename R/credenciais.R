@@ -1,7 +1,8 @@
 # Urna ANPOCS 2026 — credenciais
 #
-# A senha de cada credencial e um PIN de 4 numeros (0000 a 9999), por decisao
-# do responsavel (08/10). Os 3 PINs de um programa sao diferentes entre si.
+# A senha de cada credencial e um PIN de 4 numeros (1000 a 9999, nenhum
+# comeca com zero), por decisao do responsavel (08/10). Os 3 PINs de um
+# programa sao diferentes entre si.
 #
 # O banco NUNCA guarda o PIN. Guarda so o hash: uma impressao digital que
 # serve para conferir um PIN digitado, mas nao permite reconstrui-lo.
@@ -12,12 +13,13 @@ library(DBI)
 library(sodium)
 library(openssl)
 
-# Um inteiro de 0 a 65535 (dois bytes aleatorios) vira PIN pelo resto da
-# divisao por 10000, mas so de 0 a 59999: ai cada PIN aparece exatamente 6
-# vezes. De 60000 em diante devolve NA, e sorteia-se de novo. Sem isso, os
-# PINs de 0000 a 5535 sairiam mais do que os outros.
+# PIN de 1000 a 9999 (9000 valores): nenhum comeca com zero, que o Excel
+# apagaria. Um inteiro de 0 a 65535 (dois bytes aleatorios) vira
+# 1000 + (resto da divisao por 9000), mas so de 0 a 62999: ai cada PIN
+# aparece exatamente 7 vezes. De 63000 em diante devolve NA, e sorteia-se de
+# novo. Sem isso, os PINs de 1000 a 3535 sairiam mais do que os outros.
 pin_de_inteiro <- function(v) {
-  ifelse(v < 60000, sprintf("%04d", as.integer(v) %% 10000L), NA_character_)
+  ifelse(v < 63000, sprintf("%04d", 1000L + as.integer(v) %% 9000L), NA_character_)
 }
 
 gerar_pin <- function() {
@@ -38,9 +40,10 @@ gerar_pins_programa <- function(n = 3L) {
 }
 
 # Tolerancia de digitacao: minusculas, hifen e espacos nao importam. Um PIN
-# digitado com menos de 4 numeros ganha zeros a esquerda: o Excel abre
-# "0427" como 427, e quem digitar 427 tem de entrar. Nao ha ambiguidade,
-# porque todo PIN tem 4 numeros.
+# digitado com menos de 4 numeros ganha zeros a esquerda. Os PINs gerados
+# desde 08/10 nunca comecam com zero, entao isso nao muda nada para eles;
+# fica por seguranca (um PIN antigo como "0427" aberto no Excel vira 427).
+# Nao ha ambiguidade, porque todo PIN tem 4 numeros.
 normalizar_senha <- function(senha) {
   s <- toupper(gsub("[^A-Za-z0-9]", "", senha))
   curto <- !is.na(s) & grepl("^[0-9]{1,3}$", s)

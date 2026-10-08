@@ -8,25 +8,38 @@ parece_hash <- function(h) grepl("^\\$", h) & nchar(h) > 50
 # Regra mudada por decisão do responsável (08/10): a senha passa a ser um
 # PIN de 4 números. Antes eram 8 caracteres de um alfabeto sem ambíguos.
 
-test_that("PIN tem 4 números, de 0000 a 9999", {
+test_that("PIN tem 4 números, de 1000 a 9999", {
   p <- replicate(500, gerar_pin())
   expect_true(all(grepl("^[0-9]{4}$", p)))
+  expect_true(all(as.integer(p) >= 1000 & as.integer(p) <= 9999))
 })
 
-test_that("PIN sorteado sem viés: cada um dos 10.000 valores tem a mesma chance", {
-  # Dois bytes aleatórios dão 0 a 65535. Os valores de 60000 em diante são
-  # descartados (sorteia-se de novo); de 0 a 59999, o resto por 10000 dá
-  # cada PIN exatamente 6 vezes.
+test_that("nenhum PIN gerado começa com zero", {
+  # Nem sorteado avulso, nem na carga de um banco.
+  p <- replicate(3000, gerar_pin())
+  expect_false(any(startsWith(p, "0")))
+  expect_false(any(startsWith(pin_de_inteiro(0:65535), "0"), na.rm = TRUE))
+
+  con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
+  saida <- carregar_programas(con, programas_sinteticos(20))
+  expect_false(any(startsWith(saida$senha, "0")))
+})
+
+test_that("PIN sorteado sem viés: cada um dos 9.000 valores tem a mesma chance", {
+  # Dois bytes aleatórios dão 0 a 65535. Os valores de 63000 em diante são
+  # descartados (sorteia-se de novo); de 0 a 62999, 1000 + o resto por 9000
+  # dá cada PIN, de 1000 a 9999, exatamente 7 vezes.
   todos <- pin_de_inteiro(0:65535)
   validos <- todos[!is.na(todos)]
-  expect_equal(length(validos), 60000)
-  expect_equal(sum(is.na(todos)), 65536 - 60000)
-  expect_true(all(is.na(pin_de_inteiro(60000:65535))))
+  expect_equal(length(validos), 63000)
+  expect_equal(sum(is.na(todos)), 65536 - 63000)
+  expect_true(all(is.na(pin_de_inteiro(63000:65535))))
   contagem <- table(validos)
-  expect_equal(length(contagem), 10000)
-  expect_true(all(contagem == 6))
-  expect_equal(pin_de_inteiro(c(0, 427, 9999, 10000, 59999)),
-               c("0000", "0427", "9999", "0000", "9999"))
+  expect_equal(length(contagem), 9000)
+  expect_true(all(contagem == 7))
+  expect_equal(sort(names(contagem)), sprintf("%04d", 1000:9999))
+  expect_equal(pin_de_inteiro(c(0, 427, 8999, 9000, 62999)),
+               c("1000", "1427", "9999", "1000", "9999"))
 })
 
 test_that("os 3 PINs de um programa são diferentes entre si", {

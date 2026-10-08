@@ -48,14 +48,15 @@ comissão eleitoral que não programa.
 
 ### Decisões da versão definitiva (08/10)
 
-- **A senha passa a ser um PIN de 4 números** (0000 a 9999), sorteado sem
-  viés. Continuam 3 credenciais por programa (1 ativa, 2 reservas), e os 3
-  PINs de um programa são diferentes entre si. Um PIN digitado com menos
-  de 4 números ganha zeros à esquerda: o Excel abre "0427" como 427, e quem
-  digitar 427 entra.
+- **A senha passa a ser um PIN de 4 números, de 1000 a 9999** (nenhum
+  começa com zero, que o Excel apagaria), sorteado sem viés. Continuam 3
+  credenciais por programa (1 ativa, 2 reservas), e os 3 PINs de um
+  programa são diferentes entre si. A tolerância de completar com zeros à
+  esquerda um PIN digitado com menos de 4 números continua, embora os PINs
+  gerados não precisem dela.
 - **Sem limite de tentativas e sem bloqueio: decisão do Vinicius, tomada
   sabendo do risco medido.** Conferir um PIN leva ~29 ms, e os logins são
-  previsíveis (`usp-ppgs`). Quem souber um login consegue testar os 10.000
+  previsíveis (`usp-ppgs`). Quem souber um login consegue testar os 9.000
   PINs em poucos minutos, dentro da janela de 30 minutos (a urna só confere
   PIN com a urna aberta). Foi proposto um limite de 5 erros a cada 2
   minutos por programa; a proposta foi recusada.
@@ -391,16 +392,19 @@ credencial ativa com `FOR SHARE`. Assim, uma troca e um voto simultâneos
 nunca se cruzam.
 
 **PIN** (desde 08/10; antes eram 8 caracteres sem ambíguos):
-- 4 números, de 0000 a 9999, sorteados **sem viés** (`gerar_pin()`):
-  dois bytes aleatórios dão 0 a 65535; de 60000 em diante, sorteia-se de
-  novo; de 0 a 59999, o resto por 10000 dá cada PIN exatamente 6 vezes. Um
-  teste confere a conta para todos os 65536 valores;
+- 4 números, **de 1000 a 9999**: nenhum PIN começa com zero (há teste),
+  porque o Excel apagaria o zero;
+- sorteados **sem viés** (`gerar_pin()`): dois bytes aleatórios dão 0 a
+  65535; de 63000 em diante, sorteia-se de novo; de 0 a 62999, 1000 + o
+  resto por 9000 dá cada PIN exatamente 7 vezes. Um teste confere a conta
+  para todos os 65536 valores;
 - os 3 PINs de um programa são diferentes entre si
   (`gerar_pins_programa()`); entre programas, podem coincidir: quem separa
   é o login;
 - a verificação tolera espaços e hífen, e completa com zeros à esquerda um
   PIN digitado com menos de 4 números (`normalizar_senha()`): "427" vale
-  "0427".
+  "0427". Os PINs gerados não precisam disso; a tolerância fica por
+  segurança.
 
 `carregar_programas()` só roda em banco sem programas: rodar de novo
 geraria PINs novos e o banco deixaria de bater com os CSV entregues. Os
@@ -418,10 +422,10 @@ se chama `senha` e guarda o PIN, como texto):
 `DEV_senhas_...`.
 
 Os CSV são UTF-8 separados por vírgula. **Aberto com dois cliques no Excel
-em português, ele pode mostrar os acentos errados, juntar tudo numa coluna
-ou tirar o zero da frente do PIN.** Para abrir certo: Excel → Dados → De
-Texto/CSV → origem 65001 (UTF-8), delimitador vírgula. O PIN sem o zero
-continua funcionando.
+em português, ele pode mostrar os acentos errados ou juntar tudo numa
+coluna.** Para abrir certo: Excel → Dados → De Texto/CSV → origem 65001
+(UTF-8), delimitador vírgula. Como nenhum PIN começa com zero, o Excel não
+tem zero para apagar.
 
 Todo script que gera PINs confere **antes** que consegue escrever os dois
 CSV (`exigir_escrita()`; arquivo aberto no Excel trava a escrita). Senão a
@@ -738,8 +742,9 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 
 **Versão definitiva (08/10):** PIN de 4 números, lista oficial com limpeza
 e correções, chapa única, script único de preparação
-(`preparar/preparar_banco.R`) e simulação de carga. 1160 verificações nos
-testes, todas passando (incluindo as que leem a lista oficial).
+(`preparar/preparar_banco.R`) e simulação de carga. Depois, PIN de 1000 a
+9999, sem zero na frente. 1165 verificações nos testes, todas passando
+(incluindo as que leem a lista oficial).
 
 ---
 
@@ -828,7 +833,7 @@ Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
   de teste e outro no sistema final. Avisar os coordenadores, por escrito,
   que o PIN de teste não vale no dia 9.
 - **Secretaria e o CSV:** abrir pelo Excel → Dados → De Texto/CSV (UTF-8,
-  vírgula), para não perder acentos nem o zero do PIN (seção 4).
+  vírgula), para não perder os acentos (seção 4).
 - **Uma segunda pessoa treinada** para operar o painel do mesário no dia 9.
 - **Higiene do computador presencial:** o eleitor digita a própria senha, e
   a sessão se encerra sozinha depois do "voto depositado".

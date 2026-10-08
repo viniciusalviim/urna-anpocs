@@ -103,11 +103,12 @@ test_that("entrar e sair sem votar não gasta a credencial", {
   expect_equal(autenticar(b$con, "teste-001", pin)$motivo, "ja_votou")
 })
 
-test_that("login em maiúsculas e PIN sem o zero da frente entram", {
+test_that("login em maiúsculas e PIN com espaços entram", {
+  # (O PIN sem o zero da frente é conferido em test-credenciais.R: os PINs
+  # gerados não começam com zero.)
   b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
   pin <- senha_de(b$senhas, "teste-001", 1)
-  sem_zeros <- sub("^0+(?=.)", "", pin, perl = TRUE)   # "0427" -> "427"
-  r <- autenticar(b$con, "TESTE-001", sem_zeros)
+  r <- autenticar(b$con, "TESTE-001", paste0(" ", substr(pin, 1, 2), " ", substr(pin, 3, 4), " "))
   expect_true(r$ok)
 })
 
