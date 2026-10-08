@@ -23,7 +23,7 @@ comissão eleitoral que não programa.
 | Janela | ~30 minutos, abertura e fechamento manuais pelo mesário |
 | Eleitores | até 119 Programas de Pós-Graduação **e Centros de Pesquisa** |
 | Voto | 1 por associado, exercido pelo Coordenador(a) ou Vice em exercício |
-| Cédula | **chapa única** (número 1) + abstenção |
+| Cédula | **chapa única**, "Chapa 1" (número 1, 13 membros) + abstenção |
 | Credenciais | 3 por programa, cada uma com um **PIN de 4 números**; só 1 ativa (a distribuída), 2 reservas inativas |
 | Votação | **híbrida**: na sala, cada pessoa vota pelo próprio celular (papel com login, PIN e QR code) ou no computador dedicado; online, pelo computador ou pelo celular |
 
@@ -86,16 +86,35 @@ comissão eleitoral que não programa.
     `puc-rio-iri`, `cebrap`, `cedec`, `fbsp`, `ufabc-cecs`, `unicamp-nepo`,
     `unicamp-nep`, `unicamp-pagu`;
   - usa o login como `id` do programa.
-- **Pendente de confirmação com a ANPOCS:** o login `ufgs-ppgs` (a
-  universidade é UFGD). Fica como está na lista. Outros pontos apontados
-  em 08/10 ficaram como estão, porque não foi pedida correção:
-  "UNESP-Marília", "USP - EACH" e "FCRB" aparecem duas vezes no nome
-  oficial; "Programa Pós-Graduação em Gestão de Políticas Públicas" não tem
-  o "de"; "Programa de Política Científica Tecnológica" talvez tenha perdido
-  um "e".
-- **Sistema de teste com a lista real** (banco urna-teste), com uma
-  **chapa de exemplo**. O sistema final usa o mesmo script de preparação,
-  com a chapa real.
+- **Login da UFGD:** a ANPOCS confirmou que o certo é UFGD (Universidade
+  Federal da Grande Dourados), login `ufgd-ppgs`. A própria planilha já foi
+  corrigida (08/10, 10h44; comparada com a versão anterior, foi a única
+  mudança). Por isso não há correção para esse login em
+  `CORRECOES_LISTA`: ela não acharia o texto antigo e faria a preparação
+  parar. O cuidado ficou de outro jeito: `LOGINS_SUBSTITUIDOS` faz a
+  preparação **parar se o login antigo `ufgs-ppgs` aparecer** (uma cópia
+  antiga da planilha, por exemplo).
+- Outros pontos apontados em 08/10 ficaram como estão, porque não foi
+  pedida correção: "UNESP-Marília", "USP - EACH" e "FCRB" aparecem duas
+  vezes no nome oficial; "Programa Pós-Graduação em Gestão de Políticas
+  Públicas" não tem o "de"; "Programa de Política Científica Tecnológica"
+  talvez tenha perdido um "e".
+- **A chapa oficial vale nos dois sistemas**, teste e final
+  (`CHAPA_OFICIAL`, `preparar/chapas.R`); a chapa de exemplo deixou de
+  existir. "Chapa 1", número 1, 13 membros, cada um com nome, cargo e
+  instituição:
+  - Presidência: Angela Maria Alonso (USP)
+  - Secretaria Executiva: Marjorie Marona (UNIRIO)
+  - Secretaria Executiva Adjunta: Igor José de Renó Machado (UFSCar)
+  - Diretoria de Antropologia: Osmundo Santos de Araujo Pinho (UFRB)
+  - Diretoria de Ciência Política: Marisa von Bülow (UnB)
+  - Diretoria de Sociologia: Alex Niche Teixeira (UFRGS)
+  - Diretoria de Publicações: Flavia Mateus Rios (USP)
+  - Comitê Acadêmico: Adalberto Moreira Cardoso (UERJ); Patrice Schuch
+    (UFRGS); Rachel Meneguello (UNICAMP)
+  - Conselho Fiscal: Manoel Leonardo Wanderley Duarte Santos (UFMG);
+    Francisco Jatobá de Andrade (UFPE); Antonella Maria Imperatriz
+    Tassinari (UFSC)
 
 Duas datas do regimento travam o cronograma:
 
@@ -128,8 +147,8 @@ As linhas até 02/10 são o plano original, registrado como histórico.
 ### Sistema de teste e rodadas de teste
 
 - Desde 08/10, o sistema de teste usa a **lista oficial real** (119
-  programas) e uma **chapa de exemplo**. Antes, as rodadas usavam 60
-  participantes inventados.
+  programas) e a **chapa oficial**, a mesma do sistema final. Antes, as
+  rodadas usavam 60 participantes inventados e chapas de exemplo.
 - Banco Neon separado: projeto `urna-teste`, nem o de dev nem o da eleição.
 - O carimbo de ambiente tem três valores: `dev`, `teste`, `producao` (ver
   seção 4). Os testes automáticos só rodam contra `dev`.
@@ -144,7 +163,7 @@ de verdade).
 | variáveis lidas do `.Renviron` | `URNA_TESTE_PG_*` | `URNA_PROD_PG_*` |
 | carimbo do banco | `teste` | `producao` |
 | modo da urna | `teste` (faixa de teste) | `oficial` |
-| chapa | `CHAPA_TESTE` (exemplo) | `CHAPA_OFICIAL` (`preparar/chapas.R`; recusa se vazia) |
+| chapa | `CHAPA_OFICIAL` (`preparar/chapas.R`) | a mesma `CHAPA_OFICIAL` |
 | PINs ativos | `saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv` | `saida/PRODUCAO_PINS_ATIVOS_...` |
 | PINs reservas | `saida/TESTE_PINS_RESERVAS_guardar_com_a_mesa.csv` | `saida/PRODUCAO_PINS_RESERVAS_...` |
 
@@ -543,6 +562,15 @@ original, até o fim da janela de retenção.
    ABSTENÇÃO (só se `urna.permite_abstencao`) escreve "abstenção" no campo;
    o valor gravado em `votos.opcao` é `abstencao`, sem acento. Não existe
    voto "branco" no sistema.
+   - Os membros aparecem **agrupados pelo cargo**, na ordem da chapa, cada
+     um como "Nome (Instituição)" (`agrupar_membros()`, `cartao_opcao()`).
+   - **O CONFIRMA fica fixo na parte de baixo da tela** enquanto a lista de
+     membros está à vista. Com 13 nomes, ele sairia da tela do celular. Por
+     isso a página usa `overflow-x: clip`, e não `hidden`, que impediria o
+     botão de ficar fixo.
+   - Conferido em 08/10 a 375 px de largura, numa prévia sem banco: sem
+     rolagem lateral, nomes com 16 px, botão sempre visível e sem cobrir o
+     último nome.
 3. "VOTO DEPOSITADO" + download automático do comprovante.
 
 **Comprovante**: nome oficial do programa, data, hora com segundos,
@@ -653,7 +681,7 @@ elaborada, qualquer coisa não listada acima.
 - Desenvolvimento sempre contra o banco `urna-dev`, com dados sintéticos.
 - Para testar na tela: `dev/03_preparar_urna_dev.R` recria os 119
   programas sintéticos, os dois CSV de PINs, a urna (fechada por padrão;
-  `ESTADO_URNA` no topo) e a chapa única de exemplo. Os testes apagam o
+  `ESTADO_URNA` no topo) e a chapa oficial. Os testes apagam o
   banco: rode o `03` depois deles.
 - **Muitos votos ao mesmo tempo:** `Rscript dev/simular_carga.R`, só no dev
   (apaga o banco de dev; depois, rode o `03`). Abre 20 processos que entram
@@ -743,8 +771,9 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
 **Versão definitiva (08/10):** PIN de 4 números, lista oficial com limpeza
 e correções, chapa única, script único de preparação
 (`preparar/preparar_banco.R`) e simulação de carga. Depois, PIN de 1000 a
-9999, sem zero na frente. 1165 verificações nos testes, todas passando
-(incluindo as que leem a lista oficial).
+9999, sem zero na frente; login da UFGD; chapa oficial com 13 membros nos
+dois sistemas. 1222 verificações nos testes, todas passando (incluindo as
+que leem a lista oficial).
 
 ---
 
@@ -772,10 +801,13 @@ pode ser esquecido.
       na rodada de teste, e conhecida só pelo Vinicius e pela segunda
       pessoa treinada. Gerar o hash novo com `dev/gerar_hash_mesario.R` e
       pôr em `URNA_MESARIO_HASH` onde o painel de produção roda
-- [ ] `CHAPA_OFICIAL` preenchida em `preparar/chapas.R` (número, nome,
-      membros e cargos), conferida com a Comissão
+- [x] `CHAPA_OFICIAL` preenchida em `preparar/chapas.R` (08/10: "Chapa 1",
+      13 membros com cargo e instituição)
+- [ ] `CHAPA_OFICIAL` conferida com a Comissão, nome por nome, na tela da
+      cédula do sistema de teste
 - [ ] `URNA_PROD_PG_*` no `.Renviron` apontando para o banco da eleição
-- [ ] Login `ufgs-ppgs` (UFGD) confirmado com a ANPOCS
+- [x] Login da UFGD confirmado com a ANPOCS (08/10): `ufgd-ppgs`, já
+      corrigido na planilha
 - [ ] `preparar/preparar_banco.R` rodado **uma vez** com
       `AMBIENTE <- "producao"`. Ele carimba `producao`, deixa a urna
       fechada em modo `oficial` e gera

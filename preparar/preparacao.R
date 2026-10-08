@@ -10,7 +10,8 @@
 
 # Correções aprovadas pelo responsável (08/10). Cada uma só é aplicada se o
 # texto encontrado for exatamente o esperado ("de"); se a lista mudar, a
-# preparação para em vez de corrigir às cegas.
+# preparação para em vez de corrigir às cegas. O login é comparado já em
+# minúsculas. (A função também corrige login, com campo = "login".)
 CORRECOES_LISTA <- data.frame(
   login = c("usp-iri", "ufscar-ppgas", "unesp-ar-ppgcs", "ufpa-naea",
             "puc-ppgcs", "puc-iri", "puc-rs-ppgscp", "puc-sp-ppgcs"),
@@ -26,6 +27,16 @@ CORRECOES_LISTA <- data.frame(
             "UNESP-Araraquara",
             "Núcleo de Altos Estudos Amazônicos",
             "PUC-MG", "PUC-MG", "PUC-RS", "PUC-SP"),
+  stringsAsFactors = FALSE
+)
+
+# Logins que não podem mais aparecer. A ANPOCS confirmou (08/10) que o
+# programa é da UFGD (Universidade Federal da Grande Dourados): o login é
+# ufgd-ppgs. A planilha oficial já foi corrigida (08/10, 10h44); se uma
+# cópia antiga, com ufgs-ppgs, for usada, a preparação para.
+LOGINS_SUBSTITUIDOS <- data.frame(
+  de   = "ufgs-ppgs",
+  para = "ufgd-ppgs",
   stringsAsFactors = FALSE
 )
 
@@ -73,6 +84,14 @@ limpar_lista <- function(bruta, correcoes = CORRECOES_LISTA) {
            call. = FALSE)
     }
     l[[cr$campo]][k] <- cr$para
+  }
+
+  velhos <- intersect(l$login, LOGINS_SUBSTITUIDOS$de)
+  if (length(velhos)) {
+    certo <- LOGINS_SUBSTITUIDOS$para[match(velhos, LOGINS_SUBSTITUIDOS$de)]
+    stop("A lista traz o login antigo ", paste(velhos, collapse = ", "),
+         "; o certo é ", paste(certo, collapse = ", "),
+         ". Use a planilha corrigida. Nada foi feito.", call. = FALSE)
   }
 
   ruins <- l$login[!grepl("^[a-z0-9-]+$", l$login)]

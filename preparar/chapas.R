@@ -1,34 +1,50 @@
-# Urna ANPOCS 2026 — a chapa de cada sistema
+# Urna ANPOCS 2026 — a chapa
 #
-# A eleição tem chapa única (número 1) e abstenção.
-# - Sistema de TESTE: chapa de exemplo, com nomes inventados.
-# - Sistema FINAL: a chapa real. Fica NULL até ser preenchida, e o script de
-#   preparação se recusa a preparar produção sem ela.
+# A eleição tem chapa única (número 1) e abstenção. A chapa oficial é usada
+# nos DOIS sistemas, teste e final (decisão de 08/10), e também no dev.
+#
+# Cada membro tem nome, cargo e instituição. Na cédula, os membros aparecem
+# agrupados pelo cargo, na ordem desta tabela, como "Nome (Instituição)".
 
-CHAPA_TESTE <- list(
+CHAPA_OFICIAL <- list(
   numero  = 1L,
-  nome    = "Chapa de Exemplo (sistema de teste)",
+  nome    = "Chapa 1",
   membros = data.frame(
-    nome  = c("Ana Fictícia", "Bruno Inventado", "Carla Imaginária", "Diego Suposto"),
-    cargo = c("Presidência", "Secretaria Executiva", "Conselho Fiscal", "Conselho Fiscal"),
+    cargo = c(
+      "Presidência",
+      "Secretaria Executiva",
+      "Secretaria Executiva Adjunta",
+      "Diretoria de Antropologia",
+      "Diretoria de Ciência Política",
+      "Diretoria de Sociologia",
+      "Diretoria de Publicações",
+      "Comitê Acadêmico", "Comitê Acadêmico", "Comitê Acadêmico",
+      "Conselho Fiscal", "Conselho Fiscal", "Conselho Fiscal"),
+    nome = c(
+      "Angela Maria Alonso",
+      "Marjorie Marona",
+      "Igor José de Renó Machado",
+      "Osmundo Santos de Araujo Pinho",
+      "Marisa von Bülow",
+      "Alex Niche Teixeira",
+      "Flavia Mateus Rios",
+      "Adalberto Moreira Cardoso", "Patrice Schuch", "Rachel Meneguello",
+      "Manoel Leonardo Wanderley Duarte Santos", "Francisco Jatobá de Andrade",
+      "Antonella Maria Imperatriz Tassinari"),
+    instituicao = c(
+      "USP", "UNIRIO", "UFSCar", "UFRB", "UnB", "UFRGS", "USP",
+      "UERJ", "UFRGS", "UNICAMP",
+      "UFMG", "UFPE", "UFSC"),
     stringsAsFactors = FALSE
   )
 )
 
-# Preencher antes de preparar o sistema final, no mesmo formato:
-# list(numero = 1L, nome = "...",
-#      membros = data.frame(nome = c(...), cargo = c(...)))
-CHAPA_OFICIAL <- NULL
-
+# A mesma chapa nos dois sistemas. (O argumento fica para que o script de
+# preparação continue o mesmo se um dia os sistemas tiverem chapas
+# diferentes.)
 chapa_do_ambiente <- function(ambiente) {
-  if (identical(ambiente, "producao")) {
-    if (is.null(CHAPA_OFICIAL)) {
-      stop("A chapa oficial ainda não foi preenchida em preparar/chapas.R. ",
-           "Nada foi feito.", call. = FALSE)
-    }
-    return(CHAPA_OFICIAL)
-  }
-  CHAPA_TESTE
+  stopifnot(length(ambiente) == 1L, ambiente %in% c("dev", "teste", "producao"))
+  CHAPA_OFICIAL
 }
 
 validar_chapa <- function(chapa) {
@@ -47,14 +63,17 @@ validar_chapa <- function(chapa) {
   if (any(vazio(m$nome) | vazio(m$cargo))) {
     stop("Todo membro precisa de nome e cargo.", call. = FALSE)
   }
+  if ("instituicao" %in% names(m) && any(vazio(m$instituicao))) {
+    stop("Todo membro precisa da instituição.", call. = FALSE)
+  }
   invisible(TRUE)
 }
 
 # Grava a chapa. Os membros vão em jsonb, na ordem dada, como a cédula lê.
 cadastrar_chapa <- function(con, chapa) {
   validar_chapa(chapa)
-  membros <- as.character(jsonlite::toJSON(
-    chapa$membros[, c("nome", "cargo")], dataframe = "rows"))
+  colunas <- intersect(c("nome", "cargo", "instituicao"), names(chapa$membros))
+  membros <- as.character(jsonlite::toJSON(chapa$membros[, colunas], dataframe = "rows"))
   invisible(DBI::dbExecute(con,
     "insert into chapas (numero, nome, membros) values ($1, $2, $3::jsonb)",
     list(as.integer(chapa$numero), trimws(chapa$nome), membros)))

@@ -26,7 +26,7 @@ invisible(DBI::dbExecute(con,
   list(ESTADO_URNA)))
 
 source("preparar/chapas.R")
-cadastrar_chapa(con, CHAPA_TESTE)
+cadastrar_chapa(con, CHAPA_OFICIAL)
 
 cat("\nUrna:\n")
 print(DBI::dbGetQuery(con, "select estado, modo, permite_abstencao from urna"))

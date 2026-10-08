@@ -238,27 +238,8 @@ server <- function(input, output, session) {
                       tags$strong("Número inexistente")))
     }
 
-    tagList(
-      tags$div(
-        class = "card mt-3",
-        tags$div(
-          class = "card-body",
-          tags$h5(class = "card-title", d$nome),
-          if (!is.null(d$membros) && nrow(d$membros) > 0) {
-            tags$ul(class = "mb-0", lapply(seq_len(nrow(d$membros)), function(i) {
-              tags$li(tags$strong(d$membros$nome[i]), " — ", d$membros$cargo[i])
-            }))
-          }
-        )
-      ),
-      tags$button(
-        id = "confirma", type = "button",
-        class = "btn btn-success btn-lg w-100 mt-3",
-        `data-opcao` = d$opcao,
-        onclick = "urnaConfirmar(this)",
-        rotulo_confirma(d$opcao)
-      )
-    )
+    # Nome da chapa, membros por cargo e o CONFIRMA fixo embaixo (R/tela.R).
+    cartao_opcao(d)
   })
 
   output$aviso_voto <- renderUI({

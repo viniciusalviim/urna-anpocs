@@ -61,6 +61,31 @@ test_that("recusa correção que não encontra o texto esperado (a lista mudou)"
   expect_error(limpar_lista(bruta_exemplo(), cor), "Correção")
 })
 
+test_that("corrige um login, com o mesmo cuidado das outras correções", {
+  cor <- rbind(correcoes_exemplo(),
+               data.frame(login = "ufc-prof", campo = "login",
+                          de = "ufc-prof", para = "ufc-profsocio"))
+  l <- limpar_lista(bruta_exemplo(), cor)
+  expect_true("ufc-profsocio" %in% l$login)
+  expect_false("ufc-prof" %in% l$login)
+  expect_equal(l$id[l$login == "ufc-profsocio"], "ufc-profsocio")
+
+  # o login esperado não está na lista: para
+  cor$login[3] <- "ufc-outro"; cor$de[3] <- "ufc-outro"
+  expect_error(limpar_lista(bruta_exemplo(), cor), "Correção")
+})
+
+test_that("planilha com o login antigo ufgs-ppgs é recusada", {
+  # A planilha oficial já traz ufgd-ppgs (corrigida em 08/10). Uma cópia
+  # antiga, com ufgs-ppgs, faz a preparação parar.
+  b <- bruta_exemplo(); b$d[5] <- "UFGS-PPGS"
+  expect_error(limpar_lista(b, correcoes_exemplo()), "ufgs-ppgs")
+  b$d[5] <- "UFGD-PPGS"
+  expect_true("ufgd-ppgs" %in% limpar_lista(b, correcoes_exemplo())$login)
+  expect_equal(LOGINS_SUBSTITUIDOS$de, "ufgs-ppgs")
+  expect_equal(LOGINS_SUBSTITUIDOS$para, "ufgd-ppgs")
+})
+
 test_that("recusa nomes oficiais repetidos", {
   b <- bruta_exemplo()
   b$c[3] <- b$c[1]; b$b[3] <- "USP"        # mesmo nome e universidade da linha 1
@@ -108,9 +133,11 @@ test_that("lista oficial: 119 programas, correções aplicadas, sem repetição"
   expect_match(of[["puc-sp-ppgcs"]], "– PUC-SP$")
   expect_false("PUC" %in% l$universidade)
 
-  # a confirmar com a ANPOCS: fica como está na lista
-  expect_true("ufgs-ppgs" %in% l$login)
-  expect_match(of[["ufgs-ppgs"]], "– UFGD$")
+  # confirmado pela ANPOCS (08/10): o login certo é ufgd-ppgs
+  expect_true("ufgd-ppgs" %in% l$login)
+  expect_false("ufgs-ppgs" %in% l$login)
+  expect_equal(l$id[l$login == "ufgd-ppgs"], "ufgd-ppgs")
+  expect_match(of[["ufgd-ppgs"]], "– UFGD$")
 })
 
 test_that("lista oficial: os 15 centros conferidos pelo responsável", {
@@ -124,41 +151,70 @@ test_that("lista oficial: os 15 centros conferidos pelo responsável", {
 
 # ---- chapa -----------------------------------------------------------------
 
-test_that("a chapa de exemplo do sistema de teste é válida e única", {
-  expect_silent(validar_chapa(CHAPA_TESTE))
-  expect_equal(CHAPA_TESTE$numero, 1L)
-  expect_true(nrow(CHAPA_TESTE$membros) >= 1)
-  expect_identical(chapa_do_ambiente("teste"), CHAPA_TESTE)
+test_that("a chapa oficial: Chapa 1, 13 membros, na ordem dos cargos", {
+  expect_silent(validar_chapa(CHAPA_OFICIAL))
+  expect_equal(CHAPA_OFICIAL$numero, 1L)
+  expect_equal(CHAPA_OFICIAL$nome, "Chapa 1")
+
+  m <- CHAPA_OFICIAL$membros
+  expect_equal(nrow(m), 13)
+  expect_equal(unique(m$cargo), c(
+    "Presidência", "Secretaria Executiva", "Secretaria Executiva Adjunta",
+    "Diretoria de Antropologia", "Diretoria de Ciência Política",
+    "Diretoria de Sociologia", "Diretoria de Publicações",
+    "Comitê Acadêmico", "Conselho Fiscal"))
+  expect_equal(rotulo_membro(m$nome, m$instituicao), c(
+    "Angela Maria Alonso (USP)",
+    "Marjorie Marona (UNIRIO)",
+    "Igor José de Renó Machado (UFSCar)",
+    "Osmundo Santos de Araujo Pinho (UFRB)",
+    "Marisa von Bülow (UnB)",
+    "Alex Niche Teixeira (UFRGS)",
+    "Flavia Mateus Rios (USP)",
+    "Adalberto Moreira Cardoso (UERJ)",
+    "Patrice Schuch (UFRGS)",
+    "Rachel Meneguello (UNICAMP)",
+    "Manoel Leonardo Wanderley Duarte Santos (UFMG)",
+    "Francisco Jatobá de Andrade (UFPE)",
+    "Antonella Maria Imperatriz Tassinari (UFSC)"))
+  expect_equal(sum(m$cargo == "Comitê Acadêmico"), 3)
+  expect_equal(sum(m$cargo == "Conselho Fiscal"), 3)
 })
 
-test_that("produção não prepara sem a chapa oficial preenchida", {
-  skip_if(!is.null(CHAPA_OFICIAL), "a chapa oficial já foi preenchida")
-  expect_error(chapa_do_ambiente("producao"), "chapa oficial")
+test_that("os dois sistemas, teste e final, usam a chapa oficial", {
+  expect_identical(chapa_do_ambiente("teste"), CHAPA_OFICIAL)
+  expect_identical(chapa_do_ambiente("producao"), CHAPA_OFICIAL)
+  expect_false(exists("CHAPA_TESTE"))   # a chapa de exemplo saiu
 })
 
-test_that("validar_chapa recusa chapa sem nome, sem membros ou com cargo vazio", {
-  ch <- CHAPA_TESTE; ch$nome <- " "
+test_that("validar_chapa recusa chapa sem nome, sem membros, cargo ou instituição vazios", {
+  ch <- CHAPA_OFICIAL; ch$nome <- " "
   expect_error(validar_chapa(ch), "nome")
-  ch <- CHAPA_TESTE; ch$membros <- ch$membros[0, ]
+  ch <- CHAPA_OFICIAL; ch$membros <- ch$membros[0, ]
   expect_error(validar_chapa(ch), "membro")
-  ch <- CHAPA_TESTE; ch$membros$cargo[1] <- ""
+  ch <- CHAPA_OFICIAL; ch$membros$cargo[1] <- ""
   expect_error(validar_chapa(ch), "cargo")
-  ch <- CHAPA_TESTE; ch$numero <- 0L
+  ch <- CHAPA_OFICIAL; ch$membros$instituicao[5] <- " "
+  expect_error(validar_chapa(ch), "institui")
+  ch <- CHAPA_OFICIAL; ch$numero <- 0L
   expect_error(validar_chapa(ch), "número")
 })
 
-test_that("cadastrar_chapa grava a chapa única com membros e cargos", {
+test_that("cadastrar_chapa grava a chapa com membros, cargos e instituições", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
   DBI::dbExecute(con,
     "insert into urna (id, estado, modo, permite_abstencao) values (1, 'aberta', 'teste', true)")
-  cadastrar_chapa(con, CHAPA_TESTE)
+  cadastrar_chapa(con, CHAPA_OFICIAL)
 
   ced <- ler_cedula(con)
   expect_equal(names(ced$chapas), "1")
-  expect_equal(ced$chapas[["1"]]$nome, CHAPA_TESTE$nome)
-  expect_equal(ced$chapas[["1"]]$membros$nome, CHAPA_TESTE$membros$nome)
-  expect_equal(ced$chapas[["1"]]$membros$cargo, CHAPA_TESTE$membros$cargo)
+  expect_equal(ced$chapas[["1"]]$nome, "Chapa 1")
+  m <- ced$chapas[["1"]]$membros
+  expect_equal(m$nome, CHAPA_OFICIAL$membros$nome)
+  expect_equal(m$cargo, CHAPA_OFICIAL$membros$cargo)
+  expect_equal(m$instituicao, CHAPA_OFICIAL$membros$instituicao)
   expect_equal(descrever_opcao(ced, "1")$estado, "valida")
+  expect_equal(nrow(descrever_opcao(ced, "1")$membros), 13)
   expect_equal(descrever_opcao(ced, "2")$estado, "inexistente")
   expect_equal(descrever_opcao(ced, TEXTO_ABSTENCAO)$opcao, "abstencao")
 })
@@ -185,7 +241,7 @@ test_that("preparar_banco carrega a lista, a chapa e a urna fechada, e grava os 
   pasta <- withr::local_tempdir()
   arq <- arquivos_de_pins("dev", pasta)
 
-  r <- preparar_banco(con, "dev", lista_pequena(), CHAPA_TESTE, arq)
+  r <- preparar_banco(con, "dev", lista_pequena(), CHAPA_OFICIAL, arq)
   expect_equal(r$programas, 5L)
 
   expect_equal(DBI::dbGetQuery(con, "select count(*)::int as n from programas")$n, 5L)
@@ -213,10 +269,10 @@ test_that("preparar_banco carrega a lista, a chapa e a urna fechada, e grava os 
 test_that("preparar_banco se recusa a rodar duas vezes no mesmo banco", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
   pasta <- withr::local_tempdir()
-  preparar_banco(con, "dev", lista_pequena(), CHAPA_TESTE, arquivos_de_pins("dev", pasta))
+  preparar_banco(con, "dev", lista_pequena(), CHAPA_OFICIAL, arquivos_de_pins("dev", pasta))
 
   pasta2 <- withr::local_tempdir()
-  expect_error(preparar_banco(con, "dev", lista_pequena(), CHAPA_TESTE,
+  expect_error(preparar_banco(con, "dev", lista_pequena(), CHAPA_OFICIAL,
                               arquivos_de_pins("dev", pasta2)), "já foi preparado")
   expect_length(list.files(pasta2), 0)
   expect_equal(DBI::dbGetQuery(con, "select count(*)::int as n from programas")$n, 5L)
@@ -225,7 +281,7 @@ test_that("preparar_banco se recusa a rodar duas vezes no mesmo banco", {
 test_that("preparar_banco recusa banco com outro carimbo e não mexe em nada", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
   pasta <- withr::local_tempdir()
-  expect_error(preparar_banco(con, "teste", lista_pequena(), CHAPA_TESTE,
+  expect_error(preparar_banco(con, "teste", lista_pequena(), CHAPA_OFICIAL,
                               arquivos_de_pins("teste", pasta)), "carimbado como 'dev'")
   expect_equal(DBI::dbGetQuery(con, "select count(*)::int as n from programas")$n, 0L)
   expect_length(list.files(pasta), 0)

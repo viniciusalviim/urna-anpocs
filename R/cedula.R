@@ -19,7 +19,8 @@ normalizar_opcao <- function(t) {
 #
 # Devolve list(permite_abstencao, chapas), onde chapas é uma lista nomeada
 # pelo número da chapa ("1", "2", ...), cada uma com nome e membros
-# (data.frame com nome e cargo, na ordem do cadastro).
+# (data.frame com nome, cargo e instituição, na ordem do cadastro; a
+# instituição é NA se a chapa não a tiver).
 ler_cedula <- function(con) {
   urna <- DBI::dbGetQuery(con, "select permite_abstencao from urna where id = 1")
   permite_abstencao <- nrow(urna) == 1L && isTRUE(urna$permite_abstencao)
@@ -30,12 +31,32 @@ ler_cedula <- function(con) {
 
   chapas <- lapply(seq_len(nrow(ch)), function(i) {
     m <- jsonlite::fromJSON(ch$membros[i], simplifyDataFrame = TRUE)
+    inst <- if (is.null(m$instituicao)) rep(NA_character_, length(m$nome)) else m$instituicao
     list(nome = ch$nome[i],
-         membros = data.frame(nome = m$nome, cargo = m$cargo))
+         membros = data.frame(nome = m$nome, cargo = m$cargo, instituicao = inst,
+                              stringsAsFactors = FALSE))
   })
   names(chapas) <- ch$numero
 
   list(permite_abstencao = permite_abstencao, chapas = chapas)
+}
+
+# "Nome (Instituição)", ou só o nome, se não houver instituição.
+rotulo_membro <- function(nome, instituicao) {
+  sem <- is.na(instituicao) | !nzchar(trimws(instituicao))
+  ifelse(sem, nome, paste0(nome, " (", instituicao, ")"))
+}
+
+# Membros agrupados pelo cargo, na ordem em que os cargos aparecem na chapa.
+# Devolve uma lista de list(cargo, pessoas), com pessoas já como
+# "Nome (Instituição)".
+agrupar_membros <- function(membros) {
+  if (is.null(membros) || nrow(membros) == 0L) return(list())
+  inst <- if (is.null(membros$instituicao)) NA_character_ else membros$instituicao
+  rotulos <- rotulo_membro(membros$nome, inst)
+  lapply(unique(membros$cargo), function(cg) {
+    list(cargo = cg, pessoas = rotulos[membros$cargo == cg])
+  })
 }
 
 # Texto do botão CONFIRMA, a partir da opção que ele envia a registrar_voto().

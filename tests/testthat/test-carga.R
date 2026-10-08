@@ -5,7 +5,7 @@
 test_that("votos simultâneos: um voto por programa, voto duplo recusado, integridade ok", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
   saida <- carregar_programas(con, programas_sinteticos(12))
-  cadastrar_chapa(con, CHAPA_TESTE)
+  cadastrar_chapa(con, CHAPA_OFICIAL)
   DBI::dbExecute(con,
     "insert into urna (id, estado, modo, permite_abstencao, aberta_em)
      values (1, 'aberta', 'teste', true, now())")

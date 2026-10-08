@@ -30,7 +30,7 @@ zerar_banco_dev(con, "sql/001_schema.sql")
 
 cat("Carregando", N_PROGRAMAS, "programas sinteticos (PINs so na memoria)...\n")
 saida <- carregar_programas(con, programas_sinteticos(N_PROGRAMAS))
-cadastrar_chapa(con, CHAPA_TESTE)
+cadastrar_chapa(con, CHAPA_OFICIAL)
 invisible(DBI::dbExecute(con,
   "insert into urna (id, estado, modo, permite_abstencao, aberta_em)
    values (1, 'aberta', 'teste', true, now())"))

@@ -43,21 +43,64 @@ campo_senha <- function() {
 #   campo e a tela sai do lugar;
 # - botões com pelo menos 48px de altura: área de toque de dedo;
 # - texto longo (nome de programa, de chapa) quebra em vez de alargar a
-#   tela e criar rolagem lateral.
+#   tela e criar rolagem lateral;
+# - overflow-x: clip (e não hidden): corta o que sobrar dos lados sem
+#   impedir o CONFIRMA de ficar fixo na parte de baixo da tela;
+# - o bloco do CONFIRMA (.urna-confirma) fica fixo embaixo enquanto a lista
+#   de membros da chapa estiver à vista: com 13 nomes, ele sairia da tela.
 estilo_celular <- function() {
   htmltools::tags$style(htmltools::HTML("
-    html, body { overflow-x: hidden; }
+    html, body { overflow-x: clip; }
     body { overflow-wrap: anywhere; }
     .form-control, .form-select { font-size: 16px; }
     .form-control-lg { font-size: 1.5rem; }
     .btn { min-height: 48px; white-space: normal; }
     #numero { font-size: 2rem; text-align: center; letter-spacing: 0.2em; }
     .urna-caixa { max-width: 480px; margin: 1.5rem auto; }
+    .urna-cargo { font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: 0.03em; color: #6c757d; margin-top: 0.6rem; }
+    .urna-membro { font-size: 1rem; line-height: 1.35; }
+    .urna-confirma { position: sticky; bottom: 0; z-index: 10; margin-top: 0.5rem;
+                     padding: 0.75rem 0; background: var(--bs-body-bg, #fff);
+                     box-shadow: 0 -8px 8px -8px rgba(0, 0, 0, 0.25); }
     @media (max-width: 576px) {
       .urna-caixa { margin-top: 0.75rem; }
       h3 { font-size: 1.4rem; }
     }
   "))
+}
+
+# O que aparece ao digitar uma opção válida: o nome da chapa, os membros
+# agrupados pelo cargo ("Nome (Instituição)") e o botão de confirmar, que
+# envia a opção escrita nele mesmo (data-opcao). Na abstenção, só o nome.
+cartao_opcao <- function(d) {
+  grupos <- agrupar_membros(d$membros)
+  htmltools::tagList(
+    htmltools::tags$div(
+      class = "card mt-3",
+      htmltools::tags$div(
+        class = "card-body",
+        htmltools::tags$h5(class = "card-title mb-1", d$nome),
+        lapply(grupos, function(g) {
+          htmltools::tags$div(
+            class = "urna-grupo",
+            htmltools::tags$div(class = "urna-cargo", g$cargo),
+            lapply(g$pessoas, function(p) htmltools::tags$div(class = "urna-membro", p))
+          )
+        })
+      )
+    ),
+    htmltools::tags$div(
+      class = "urna-confirma",
+      htmltools::tags$button(
+        id = "confirma", type = "button",
+        class = "btn btn-success btn-lg w-100",
+        `data-opcao` = d$opcao,
+        onclick = "urnaConfirmar(this)",
+        rotulo_confirma(d$opcao)
+      )
+    )
+  )
 }
 
 # No iPhone e no iPad, o PDF costuma abrir numa aba em vez de baixar.
