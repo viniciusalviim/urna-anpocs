@@ -717,17 +717,29 @@ elaborada, qualquer coisa não listada acima.
 - **Papéis para imprimir:** `Rscript dev/gerar_papeis.R`, só no
   computador do responsável.
   - No topo do script: `ENDERECO_URNA` (https, sem `?` nem `#`),
-    `ARQUIVO_ATIVAS` e `ARQUIVO_PDF`.
-  - Gera uma página A4 por programa, com nome, login, PIN e um QR code só
-    com o endereço da urna.
+    `ARQUIVO_ATIVAS`, `ARQUIVO_PDF` e `LOGO`.
+  - **Layout (08/10):** uma página A4 por programa, só com, de cima para
+    baixo:
+    1. o logo da ANPOCS no canto superior esquerdo;
+    2. "Assembleia ANPOCS", centralizado no alto;
+    3. o nome oficial do programa ou centro;
+    4. "Login" e o login;
+    5. "Senha (PIN)" e o PIN, em letra grande;
+    6. o QR code com o endereço da urna.
+    
+    Nada mais: nem endereço escrito, nem instruções, nem rodapé.
+  - **Logo:** `dev/logo_anpocs.png` ou `dev/logo_anpocs.jpg`, lido por
+    `ler_logo()`. Sem ele, o script **para** com mensagem clara, em vez de
+    gerar papéis sem logo.
   - Por padrão, lê `saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv`.
-    Os papéis de teste (`TESTE_`, `RODADA_`, `DEV_`) trazem a faixa
-    "CREDENCIAL DE TESTE / este PIN NÃO vale na eleição": o mesmo login
-    terá outro PIN no sistema final.
+    Os papéis de teste (`TESTE_`, `RODADA_`, `DEV_`) trazem, logo abaixo
+    do título, a faixa "CREDENCIAL DE TESTE / este PIN NÃO vale na
+    eleição": o mesmo login terá outro PIN no sistema final.
   - Recusa o arquivo de reservas.
-  - Arquivos `RODADA_` ou `DEV_` saem com a faixa "CREDENCIAL DE TESTE".
-  - O PDF contém senhas: apagar depois de imprimir.
-  - Precisa do pacote `qrcode`, só local; ele não vai para o Connect Cloud.
+  - O PDF sai comprimido (cerca de 110 KB por página) e contém PINs:
+    apagar depois de imprimir.
+  - Precisa dos pacotes `qrcode`, `jpeg` e `png`, só locais; eles não vão
+    para o Connect Cloud.
 - `.gitignore`: `.Renviron`, `*.csv`, `*.pdf`, `saida/`,
   `credenciais*.json`, `*.sqlite`.
 

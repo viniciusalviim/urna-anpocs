@@ -177,23 +177,36 @@ gerar_comprovante_pdf <- function(dados, arquivo) {
 # 2. Hífen. O pdf() do R desenha o caractere "-" como sinal de menos
 #    (/Differences [ 45/minus ]), e quem copiasse o identificador do PDF
 #    copiaria outro caractere (U+2212). Trocamos por /hyphen.
+#
+# Trabalha direto nos bytes (e não no PDF como texto): um PDF comprimido,
+# como o dos papéis, tem bytes nulos que o R não aceita numa string. Só
+# troca bytes no lugar; o tamanho do arquivo nunca muda.
 ajustar_pdf <- function(arquivo, votado_em) {
   b <- readBin(arquivo, "raw", file.size(arquivo))
-  s <- rawToChar(b)
-  d <- format(votado_em, "D:%Y%m%d%H%M%S", tz = "America/Sao_Paulo")
+  n <- length(b)
+  d <- charToRaw(format(votado_em, "%Y%m%d%H%M%S", tz = "America/Sao_Paulo"))
+  digitos <- charToRaw("0123456789")
 
-  s <- gsub("(/(CreationDate|ModDate) \\()D:[0-9]{14}\\)",
-            paste0("\\1", d, ")"), s, useBytes = TRUE)
+  for (chave in c("/CreationDate (D:", "/ModDate (D:")) {
+    for (p in grepRaw(chave, b, fixed = TRUE, all = TRUE)) {
+      ini <- p + nchar(chave, type = "bytes")
+      faixa <- ini:(ini + 13L)
+      if (max(faixa) > n || !all(b[faixa] %in% digitos)) {
+        stop("ajustar_pdf: data do PDF em formato inesperado.")
+      }
+      b[faixa] <- d
+    }
+  }
 
-  if (!grepl("/Differences [ 45/minus ]", s, fixed = TRUE, useBytes = TRUE)) {
+  de   <- charToRaw("/Differences [ 45/minus ]")
+  para <- charToRaw("/Differences [ 45/hyphen]")
+  pos  <- grepRaw(de, b, fixed = TRUE, all = TRUE)
+  if (length(pos) == 0L) {
     stop("ajustar_pdf: o PDF nao tem a codificacao esperada do hifen.")
   }
-  s <- gsub("/Differences [ 45/minus ]", "/Differences [ 45/hyphen]", s,
-            fixed = TRUE, useBytes = TRUE)
+  for (p in pos) b[p:(p + length(de) - 1L)] <- para
 
-  if (nchar(s, type = "bytes") != length(b)) {
-    stop("ajustar_pdf mudou o tamanho do PDF; o arquivo foi descartado.")
-  }
-  writeBin(charToRaw(s), arquivo)
+  if (length(b) != n) stop("ajustar_pdf mudou o tamanho do PDF; o arquivo foi descartado.")
+  writeBin(b, arquivo)
   invisible(arquivo)
 }

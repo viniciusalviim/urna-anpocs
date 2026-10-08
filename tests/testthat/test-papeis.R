@@ -78,40 +78,92 @@ test_that("arquivos do sistema de teste, da rodada e do dev são de teste", {
 
 # ---- o PDF -----------------------------------------------------------------
 
-test_that("um papel (página) por programa, com nome, login, senha e endereço", {
+# Um logo de mentira (imagem 10 x 20, cinza), para os testes não dependerem
+# do arquivo do logo da ANPOCS.
+LOGO_FALSO <- array(0.5, dim = c(10, 20, 3))
+
+conta <- function(t, padrao) lengths(regmatches(t, gregexpr(padrao, t, fixed = TRUE)))
+
+test_that("um papel (página) por programa, só com o que o layout pede", {
   s <- ler_senhas_ativas(csv_ativas())
   pdf <- tempfile(fileext = ".pdf")
-  gerar_papeis_pdf(s, END, pdf, teste = FALSE)
+  gerar_papeis_pdf(s, END, pdf, teste = FALSE, logo = LOGO_FALSO, compactar = FALSE)
 
   t <- texto_pdf(pdf)
   expect_equal(lengths(regmatches(t, gregexpr("/Type /Page[^s]", t))), 3)
+
+  # de cima para baixo: logo, título, nome, login, senha (PIN), QR code
+  expect_equal(conta(t, "(Assembleia ANPOCS)"), 3)
   for (i in 1:3) {
     expect_true(grepl(s$login[i], t, fixed = TRUE), info = s$login[i])
     expect_true(grepl(s$senha[i], t, fixed = TRUE), info = s$senha[i])
   }
-  expect_true(grepl("Ciências Sociais - UFRJ", t, fixed = TRUE))  # travessão trocado
-  expect_true(grepl(END, t, fixed = TRUE))
-  expect_true(grepl("(PIN)", t, fixed = TRUE))                 # o rótulo é PIN
-  expect_false(grepl("(Senha)", t, fixed = TRUE))
+  # travessão trocado por hífen (o nome quebra em duas linhas logo depois dele)
+  expect_true(grepl("Ciências Sociais -", t, fixed = TRUE))
+  expect_true(grepl("(UFRJ)", t, fixed = TRUE))
+  expect_false(grepl("–", t, fixed = TRUE))
+  expect_equal(conta(t, "(Login)"), 3)
+  expect_equal(conta(t, "(Senha (PIN))"), 3)
+  # duas imagens por página: o logo e o QR code
+  expect_equal(conta(t, "/Subtype /Image"), 6)
+
+  # o resto saiu: nada de endereço escrito, instruções ou rodapé
+  expect_false(grepl(END, t, fixed = TRUE))
+  expect_false(grepl("Para votar pelo celular", t, fixed = TRUE))
+  expect_false(grepl("Este papel", t, fixed = TRUE))
+  expect_false(grepl("credencial de vota", t, fixed = TRUE))
   expect_false(grepl("CREDENCIAL DE TESTE", t, fixed = TRUE))
   expect_false(grepl("NÃO vale na eleição", t, fixed = TRUE))
   # hífen de verdade: quem digitar o que vê não erra
   expect_true(grepl("/Differences [ 45/hyphen]", t, fixed = TRUE))
 })
 
-test_that("papéis de teste trazem a faixa e o aviso de que o PIN não vale na eleição", {
+test_that("papéis de teste trazem o aviso de que o PIN não vale na eleição", {
   s <- ler_senhas_ativas(csv_ativas())
   pdf <- tempfile(fileext = ".pdf")
-  gerar_papeis_pdf(s, END, pdf, teste = TRUE)
+  gerar_papeis_pdf(s, END, pdf, teste = TRUE, logo = LOGO_FALSO, compactar = FALSE)
   t <- texto_pdf(pdf)
-  expect_true(grepl("CREDENCIAL DE TESTE", t, fixed = TRUE))
-  expect_true(grepl("este PIN NÃO vale na eleição", t, fixed = TRUE))
-  expect_equal(lengths(regmatches(t, gregexpr("este PIN NÃO vale na eleição", t, fixed = TRUE))), 3)
+  expect_equal(conta(t, "CREDENCIAL DE TESTE"), 3)
+  expect_equal(conta(t, "este PIN NÃO vale na eleição"), 3)
+})
+
+test_that("o PDF para imprimir sai compactado e com o hífen corrigido", {
+  s <- ler_senhas_ativas(csv_ativas())
+  pdf <- tempfile(fileext = ".pdf")
+  gerar_papeis_pdf(s, END, pdf, teste = FALSE, logo = LOGO_FALSO)
+  # comprimido, o PDF tem bytes nulos: a busca é direto nos bytes
+  b <- readBin(pdf, "raw", file.size(pdf))
+  expect_true(length(grepRaw("/FlateDecode", b, fixed = TRUE)) > 0)
+  expect_true(length(grepRaw("/Differences [ 45/hyphen]", b, fixed = TRUE)) > 0)
+  expect_length(grepRaw("/Differences [ 45/minus ]", b, fixed = TRUE), 0)
 })
 
 test_that("gerar_papeis_pdf recusa endereço inválido antes de escrever", {
   s <- ler_senhas_ativas(csv_ativas())
   pdf <- tempfile(fileext = ".pdf")
-  expect_error(gerar_papeis_pdf(s, "http://x.org", pdf))
+  expect_error(gerar_papeis_pdf(s, "http://x.org", pdf, logo = LOGO_FALSO))
+  expect_false(file.exists(pdf))
+})
+
+# ---- o logo ----------------------------------------------------------------
+
+test_that("ler_logo acha o logo em .png ou .jpg", {
+  d <- withr::local_tempdir()
+  img <- array(0.2, dim = c(4, 8, 3))
+
+  jpeg::writeJPEG(img, file.path(d, "logo_anpocs.jpg"))
+  expect_equal(dim(ler_logo(file.path(d, "logo_anpocs")))[1:2], c(4, 8))
+
+  unlink(file.path(d, "logo_anpocs.jpg"))
+  png::writePNG(img, file.path(d, "logo_anpocs.png"))
+  expect_equal(dim(ler_logo(file.path(d, "logo_anpocs")))[1:2], c(4, 8))
+})
+
+test_that("sem o logo, para com mensagem clara em vez de gerar papel sem logo", {
+  d <- withr::local_tempdir()
+  expect_error(ler_logo(file.path(d, "logo_anpocs")), "Logo da ANPOCS não encontrado")
+  s <- ler_senhas_ativas(csv_ativas())
+  pdf <- tempfile(fileext = ".pdf")
+  expect_error(gerar_papeis_pdf(s, END, pdf, logo = NULL), "logo")
   expect_false(file.exists(pdf))
 })

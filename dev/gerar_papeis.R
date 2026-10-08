@@ -14,6 +14,7 @@
 ENDERECO_URNA  <- ""   # endereço publicado da urna, começando com https://
 ARQUIVO_ATIVAS <- "saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv"
 ARQUIVO_PDF    <- "saida/TESTE_papeis_credenciais.pdf"
+LOGO           <- "dev/logo_anpocs"   # sem extensão: .png ou .jpg
 
 source("R/comprovante.R")
 source("R/credenciais.R")
@@ -24,6 +25,7 @@ if (!nzchar(ENDERECO_URNA)) {
        call. = FALSE)
 }
 validar_endereco_urna(ENDERECO_URNA)
+logo <- ler_logo(LOGO)   # sem o logo, para aqui
 
 senhas <- ler_senhas_ativas(ARQUIVO_ATIVAS)
 teste  <- e_arquivo_de_teste(ARQUIVO_ATIVAS)
@@ -31,7 +33,7 @@ teste  <- e_arquivo_de_teste(ARQUIVO_ATIVAS)
 dir.create(dirname(ARQUIVO_PDF), showWarnings = FALSE)
 exigir_escrita(ARQUIVO_PDF)   # PDF aberto no leitor trava a escrita
 
-gerar_papeis_pdf(senhas, ENDERECO_URNA, ARQUIVO_PDF, teste = teste)
+gerar_papeis_pdf(senhas, ENDERECO_URNA, ARQUIVO_PDF, teste = teste, logo = logo)
 
 cat(nrow(senhas), "papeis gerados em", ARQUIVO_PDF, "\n")
 if (teste) cat("(arquivo de teste: cada papel traz a faixa CREDENCIAL DE TESTE)\n")
