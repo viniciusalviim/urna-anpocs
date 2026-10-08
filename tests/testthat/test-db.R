@@ -28,6 +28,14 @@ test_that("parametros_pg le as variaveis do prefixo pedido", {
   expect_equal(parametros_pg()$host, Sys.getenv("URNA_PG_HOST"))
 })
 
+test_that("cada ambiente tem as suas variaveis de conexao", {
+  expect_equal(prefixo_do_ambiente("teste"), "URNA_TESTE_PG")
+  expect_equal(prefixo_do_ambiente("producao"), "URNA_PROD_PG")
+  expect_equal(prefixo_do_ambiente("dev"), "URNA_PG")
+  expect_error(prefixo_do_ambiente("outro"))
+  expect_error(prefixo_do_ambiente(c("teste", "producao")))
+})
+
 test_that("sem as variaveis do prefixo, conectar para e nao cai em URNA_PG_*", {
   withr::local_envvar(c(URNA_NADA_PG_HOST = NA, URNA_NADA_PG_DB = NA))
   expect_error(conectar("URNA_NADA_PG"), "URNA_NADA_PG_HOST")

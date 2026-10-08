@@ -14,7 +14,7 @@ csv_ativas <- function(linhas = NULL, nome = "senhas_ATIVAS.csv") {
                        "Programa Dois", "Centro de Pesquisa Três"),
       tipo = c("ppg", "ppg", "centro"),
       ordem = c(1, 1, 1),
-      senha = c("K7PM-3XWQ", "ABCD-EFGH", "2345-6789"),
+      senha = c("0427", "1234", "9999"),
       stringsAsFactors = FALSE)
   }
   arq <- file.path(withr::local_tempdir(.local_envir = parent.frame()), nome)
@@ -42,10 +42,10 @@ test_that("o QR code contém só o endereço da urna", {
 
 # ---- leitura do arquivo das ativas -----------------------------------------
 
-test_that("lê o arquivo das senhas ativas", {
+test_that("lê o arquivo dos PINs ativos, sem perder o zero da frente", {
   s <- ler_senhas_ativas(csv_ativas())
   expect_equal(nrow(s), 3)
-  expect_equal(s$senha[1], "K7PM-3XWQ")
+  expect_equal(s$senha[1], "0427")
   expect_type(s$ordem, "character")
 })
 
@@ -68,9 +68,11 @@ test_that("recusa logins repetidos, arquivo vazio e colunas faltando", {
                "colunas")
 })
 
-test_that("arquivos da rodada e do dev são de teste", {
+test_that("arquivos do sistema de teste, da rodada e do dev são de teste", {
+  expect_true(e_arquivo_de_teste("saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv"))
   expect_true(e_arquivo_de_teste("saida/RODADA_senhas_ATIVAS_enviar_aos_participantes.csv"))
   expect_true(e_arquivo_de_teste("saida/DEV_senhas_ATIVAS_enviar_aos_coordenadores.csv"))
+  expect_false(e_arquivo_de_teste("saida/PRODUCAO_PINS_ATIVOS_enviar_aos_coordenadores.csv"))
   expect_false(e_arquivo_de_teste("saida/senhas_ATIVAS_enviar_aos_coordenadores.csv"))
 })
 
@@ -89,16 +91,22 @@ test_that("um papel (página) por programa, com nome, login, senha e endereço",
   }
   expect_true(grepl("Ciências Sociais - UFRJ", t, fixed = TRUE))  # travessão trocado
   expect_true(grepl(END, t, fixed = TRUE))
+  expect_true(grepl("(PIN)", t, fixed = TRUE))                 # o rótulo é PIN
+  expect_false(grepl("(Senha)", t, fixed = TRUE))
   expect_false(grepl("CREDENCIAL DE TESTE", t, fixed = TRUE))
+  expect_false(grepl("NÃO vale na eleição", t, fixed = TRUE))
   # hífen de verdade: quem digitar o que vê não erra
   expect_true(grepl("/Differences [ 45/hyphen]", t, fixed = TRUE))
 })
 
-test_that("papéis de teste trazem a faixa", {
+test_that("papéis de teste trazem a faixa e o aviso de que o PIN não vale na eleição", {
   s <- ler_senhas_ativas(csv_ativas())
   pdf <- tempfile(fileext = ".pdf")
   gerar_papeis_pdf(s, END, pdf, teste = TRUE)
-  expect_true(grepl("CREDENCIAL DE TESTE", texto_pdf(pdf), fixed = TRUE))
+  t <- texto_pdf(pdf)
+  expect_true(grepl("CREDENCIAL DE TESTE", t, fixed = TRUE))
+  expect_true(grepl("este PIN NÃO vale na eleição", t, fixed = TRUE))
+  expect_equal(lengths(regmatches(t, gregexpr("este PIN NÃO vale na eleição", t, fixed = TRUE))), 3)
 })
 
 test_that("gerar_papeis_pdf recusa endereço inválido antes de escrever", {

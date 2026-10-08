@@ -1,13 +1,12 @@
-# Prepara um banco vazio: carimba o ambiente e cria as tabelas.
-# Rode uma vez por banco.
+# Prepara o banco de DESENVOLVIMENTO vazio: carimba 'dev' e cria as tabelas.
+# Rode uma vez por banco. O carimbo fica gravado dentro do banco e nao pode
+# ser trocado rodando este script de novo.
 #
-# ATENCAO: a linha abaixo e a unica coisa que voce muda ao preparar o banco
-# da eleicao. O carimbo fica gravado dentro do banco e nao pode ser trocado
-# rodando este script de novo.
+# Os bancos do sistema de teste e do sistema final NAO sao preparados por
+# este script, e sim por preparar/preparar_banco.R (que carimba, cria as
+# tabelas e carrega a lista oficial).
 
-AMBIENTE <- "dev"        # "dev" ou "producao"
-                         # (o banco da rodada, 'teste', e preparado por
-                         #  rodada/01_preparar_banco_rodada.R, nao por este)
+AMBIENTE <- "dev"
 
 source("R/db.R")
 

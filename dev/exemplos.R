@@ -1,6 +1,8 @@
-# Dados de exemplo, usados no dev e na rodada de teste. Nada aqui é real.
+# Dados de exemplo dos testes automáticos. Nada aqui é real.
+# (A chapa de exemplo do dev e do sistema de teste está em preparar/chapas.R.)
 
-# Os 60 participantes da rodada de teste: logins rodada-01 a rodada-60.
+# Os 60 participantes da rodada de teste antiga: logins rodada-01 a rodada-60.
+# Usado pelos testes da limpeza de votos entre sessões.
 programas_rodada <- function(n = 60) {
   i <- seq_len(n)
   data.frame(
@@ -10,20 +12,4 @@ programas_rodada <- function(n = 60) {
     login        = sprintf("rodada-%02d", i),
     stringsAsFactors = FALSE
   )
-}
-
-# As duas chapas de exemplo, iguais no dev e na rodada.
-cadastrar_chapas_exemplo <- function(con) {
-  DBI::dbExecute(con, "
-    insert into chapas (numero, nome, membros) values
-    (1, 'Chapa Exemplo Um', '[
-       {\"nome\": \"Ana Ficticia\",     \"cargo\": \"Presidencia\"},
-       {\"nome\": \"Bruno Inventado\",  \"cargo\": \"Secretaria Executiva\"},
-       {\"nome\": \"Carla Imaginaria\", \"cargo\": \"Conselho Fiscal\"}
-     ]'::jsonb),
-    (2, 'Chapa Exemplo Dois', '[
-       {\"nome\": \"Diego Suposto\",    \"cargo\": \"Presidencia\"},
-       {\"nome\": \"Elisa Hipotetica\", \"cargo\": \"Secretaria Executiva\"},
-       {\"nome\": \"Fabio Provisorio\", \"cargo\": \"Conselho Fiscal\"}
-     ]'::jsonb)")
 }

@@ -17,15 +17,17 @@ campo_login <- function() {
   )
 }
 
-# Senha escondida, com um botão de olho para mostrar o que foi digitado.
-# autocomplete="off": o navegador não oferece guardar a senha.
+# PIN escondido, com um botão de olho para mostrar o que foi digitado.
+# inputmode e pattern: o celular abre o teclado numérico.
+# autocomplete="off": o navegador não oferece guardar o PIN.
 campo_senha <- function() {
   htmltools::tags$div(
     class = "mb-3",
-    htmltools::tags$label(`for` = "senha", class = "form-label", "Senha"),
+    htmltools::tags$label(`for` = "senha", class = "form-label", "PIN"),
     htmltools::tags$div(
       class = "input-group",
       htmltools::tags$input(id = "senha", type = "password", class = "form-control",
+                            inputmode = "numeric", pattern = "[0-9]*",
                             autocapitalize = "none", autocorrect = "off",
                             spellcheck = "false", autocomplete = "off"),
       htmltools::tags$button(id = "mostrar_senha", type = "button",

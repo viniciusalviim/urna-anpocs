@@ -1,21 +1,51 @@
 # Urna ANPOCS 2026 — credenciais
 #
-# Depende de R/voto.R (gerar_codigo, formatar_codigo): carregue voto.R antes.
+# A senha de cada credencial e um PIN de 4 numeros (0000 a 9999), por decisao
+# do responsavel (08/10). Os 3 PINs de um programa sao diferentes entre si.
 #
-# O banco NUNCA guarda a senha. Guarda so o hash: uma impressao digital que
-# serve para conferir uma senha digitada, mas nao permite reconstrui-la.
-# As senhas em texto existem uma unica vez, no data.frame devolvido por
+# O banco NUNCA guarda o PIN. Guarda so o hash: uma impressao digital que
+# serve para conferir um PIN digitado, mas nao permite reconstrui-lo.
+# Os PINs em texto existem uma unica vez, no data.frame devolvido por
 # carregar_programas(), que vira o CSV entregue a secretaria.
 
 library(DBI)
 library(sodium)
+library(openssl)
 
-# "K7PM-3XWQ": 8 caracteres do alfabeto sem ambiguos, em dois blocos de 4.
-gerar_senha <- function() formatar_codigo(gerar_codigo(8))
+# Um inteiro de 0 a 65535 (dois bytes aleatorios) vira PIN pelo resto da
+# divisao por 10000, mas so de 0 a 59999: ai cada PIN aparece exatamente 6
+# vezes. De 60000 em diante devolve NA, e sorteia-se de novo. Sem isso, os
+# PINs de 0000 a 5535 sairiam mais do que os outros.
+pin_de_inteiro <- function(v) {
+  ifelse(v < 60000, sprintf("%04d", as.integer(v) %% 10000L), NA_character_)
+}
 
-# Tolerancia de digitacao: minusculas, hifen e espacos nao importam.
+gerar_pin <- function() {
+  repeat {
+    b <- as.integer(openssl::rand_bytes(2))
+    p <- pin_de_inteiro(b[1] * 256L + b[2])
+    if (!is.na(p)) return(p)
+  }
+}
+
+# Os PINs de um programa: diferentes entre si, para que trocar para a
+# reserva nunca "troque" para o mesmo PIN.
+gerar_pins_programa <- function(n = 3L) {
+  repeat {
+    p <- vapply(seq_len(n), function(i) gerar_pin(), character(1))
+    if (!anyDuplicated(p)) return(p)
+  }
+}
+
+# Tolerancia de digitacao: minusculas, hifen e espacos nao importam. Um PIN
+# digitado com menos de 4 numeros ganha zeros a esquerda: o Excel abre
+# "0427" como 427, e quem digitar 427 tem de entrar. Nao ha ambiguidade,
+# porque todo PIN tem 4 numeros.
 normalizar_senha <- function(senha) {
-  toupper(gsub("[^A-Za-z0-9]", "", senha))
+  s <- toupper(gsub("[^A-Za-z0-9]", "", senha))
+  curto <- !is.na(s) & grepl("^[0-9]{1,3}$", s)
+  s[curto] <- formatC(as.integer(s[curto]), width = 4, flag = "0")
+  s
 }
 
 hash_senha <- function(senha) {
@@ -29,14 +59,15 @@ verificar_senha <- function(senha, hash) {
 }
 
 # Carrega os programas e cria 3 credenciais para cada um: a 1 ativa, a 2 e a
-# 3 reservas inativas (ver trocar_credencial()).
+# 3 reservas inativas (ver trocar_credencial()), cada uma com um PIN.
 #
 # 'programas' e um data.frame com as colunas: id, nome_oficial, tipo, login.
-# Devolve um data.frame com as senhas EM TEXTO (login, nome_oficial, tipo,
-# ordem, senha, ativa). Esse objeto e o unico lugar onde elas existem: grave
-# em CSV (separar_senhas) e entregue. Nao ha como recupera-las depois.
+# Devolve um data.frame com os PINs EM TEXTO (login, nome_oficial, tipo,
+# ordem, senha, ativa; a coluna senha e o PIN). Esse objeto e o unico lugar
+# onde eles existem: grave em CSV (separar_senhas) e entregue. Nao ha como
+# recupera-los depois.
 #
-# So roda em banco sem programas. Rodar de novo geraria senhas novas e o banco
+# So roda em banco sem programas. Rodar de novo geraria PINs novos e o banco
 # deixaria de bater com o CSV ja entregue.
 carregar_programas <- function(con, programas) {
   colunas <- c("id", "nome_oficial", "tipo", "login")
@@ -66,7 +97,9 @@ carregar_programas <- function(con, programas) {
     stringsAsFactors = FALSE
   )
   cred$ativa      <- cred$ordem == 1L
-  cred$senha      <- vapply(seq_len(nrow(cred)), function(i) gerar_senha(), character(1))
+  # 3 PINs diferentes por programa, na ordem 1, 2, 3 de cada um
+  cred$senha      <- unlist(lapply(seq_len(nrow(programas)),
+                                   function(i) gerar_pins_programa(3L)))
   cred$senha_hash <- vapply(cred$senha, hash_senha, character(1), USE.NAMES = FALSE)
 
   DBI::dbBegin(con)

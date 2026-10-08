@@ -1,16 +1,19 @@
-# Gera o PDF para imprimir: um papel por programa, com nome, login, senha e
+# Gera o PDF para imprimir: um papel por programa, com nome, login, PIN e
 # um QR code que abre a urna (o mesmo endereço para todos).
 #
-# Roda SÓ no computador do responsável, como a geração das senhas. O PDF
-# contém senhas: não envie por e-mail, não deixe em pasta compartilhada e
+# Roda SÓ no computador do responsável, como a geração dos PINs. O PDF
+# contém PINs: não envie por e-mail, não deixe em pasta compartilhada e
 # apague depois de imprimir. Os papéis que sobrarem são destruídos.
+#
+# Arquivo do sistema de teste (TESTE_...): cada papel sai com a faixa
+# "CREDENCIAL DE TESTE / este PIN NÃO vale na eleição".
 #
 # Para rodar, na pasta do projeto:
 #   Rscript dev/gerar_papeis.R
 
 ENDERECO_URNA  <- ""   # endereço publicado da urna, começando com https://
-ARQUIVO_ATIVAS <- "saida/RODADA_senhas_ATIVAS_enviar_aos_participantes.csv"
-ARQUIVO_PDF    <- "saida/papeis_credenciais.pdf"
+ARQUIVO_ATIVAS <- "saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv"
+ARQUIVO_PDF    <- "saida/TESTE_papeis_credenciais.pdf"
 
 source("R/comprovante.R")
 source("R/credenciais.R")
@@ -33,4 +36,4 @@ gerar_papeis_pdf(senhas, ENDERECO_URNA, ARQUIVO_PDF, teste = teste)
 cat(nrow(senhas), "papeis gerados em", ARQUIVO_PDF, "\n")
 if (teste) cat("(arquivo de teste: cada papel traz a faixa CREDENCIAL DE TESTE)\n")
 cat("\nConfira um papel lendo o QR code com o celular antes de imprimir tudo.\n",
-    "O PDF tem senhas: apague depois de imprimir.\n", sep = "")
+    "O PDF tem PINs: apague depois de imprimir.\n", sep = "")

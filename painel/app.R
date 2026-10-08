@@ -251,7 +251,7 @@ server <- function(input, output, session) {
     r <- com_conexao(trocar_credencial, input$prog_trocar)
     if (isTRUE(r$ok)) {
       showNotification(paste0("Agora vale a credencial ", r$ordem,
-                              ". Entregue a senha de ordem ", r$ordem,
+                              ". Entregue o PIN de ordem ", r$ordem,
                               " do arquivo de reservas."),
                        type = "message", duration = NULL)
     } else {

@@ -70,8 +70,45 @@ test_that("login inexistente e senha errada dao a mesma resposta", {
 test_that("senha de um programa nao abre outro", {
   b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
 
-  r <- autenticar(b$con, "teste-002", senha_de(b$senhas, "teste-001", 1))
+  # Com PIN de 4 números, outro programa pode ter o mesmo PIN por acaso
+  # (aí ele abre, porque é o PIN certo daquele login). O teste usa um
+  # programa cujo PIN ativo é diferente.
+  pin1 <- senha_de(b$senhas, "teste-001", 1)
+  outros <- c("teste-002", "teste-003")
+  alvo <- outros[vapply(outros, function(l) senha_de(b$senhas, l, 1) != pin1, logical(1))][1]
+  skip_if(is.na(alvo), "os 3 programas sortearam o mesmo PIN ativo")
+
+  r <- autenticar(b$con, alvo, pin1)
   expect_equal(r$motivo, "credenciais_invalidas")
+})
+
+test_that("entrar e sair sem votar não gasta a credencial", {
+  b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
+  pin <- senha_de(b$senhas, "teste-001", 1)
+  errado <- sprintf("%04d", (as.integer(pin) + 1L) %% 10000L)
+
+  # entra várias vezes (e erra no meio): nada muda
+  for (i in 1:5) {
+    expect_true(autenticar(b$con, "teste-001", pin)$ok)
+    expect_false(autenticar(b$con, "teste-001", errado)$ok)
+  }
+  r <- autenticar(b$con, "teste-001", pin)
+  expect_true(r$ok)
+  expect_equal(DBI::dbGetQuery(b$con, "select count(*)::int as n from votantes")$n, 0L)
+  expect_equal(DBI::dbGetQuery(b$con,
+    "select count(*)::int as n from credenciais where programa_id = 'prog001' and ativa")$n, 1L)
+
+  # e vota normalmente
+  expect_true(registrar_voto(b$con, r$programa_id, r$credencial_id, "1")$ok)
+  expect_equal(autenticar(b$con, "teste-001", pin)$motivo, "ja_votou")
+})
+
+test_that("login em maiúsculas e PIN sem o zero da frente entram", {
+  b <- preparar_login(); on.exit(DBI::dbDisconnect(b$con))
+  pin <- senha_de(b$senhas, "teste-001", 1)
+  sem_zeros <- sub("^0+(?=.)", "", pin, perl = TRUE)   # "0427" -> "427"
+  r <- autenticar(b$con, "TESTE-001", sem_zeros)
+  expect_true(r$ok)
 })
 
 test_that("digitacao tolerante no login e na senha", {
@@ -132,7 +169,11 @@ test_that("o log registra as tentativas mas nunca o que foi digitado", {
   expect_equal(log$evento, c("login_falhou", "login_falhou", "login_ok"))
   expect_equal(log$detalhe, c("prog001", NA, "prog001"))
 
-  tudo <- paste(unlist(DBI::dbGetQuery(b$con, "select * from log")), collapse = " ")
-  expect_false(grepl(normalizar_senha(s), toupper(gsub("-", "", tudo)), fixed = TRUE))
-  expect_false(grepl("ZZZZ", tudo, fixed = TRUE))
+  # Só as colunas de texto (evento, detalhe) podem guardar algo digitado:
+  # id e hora são gerados pelo banco e têm números que poderiam coincidir
+  # com um PIN de 4 números por acaso.
+  todo <- DBI::dbGetQuery(b$con, "select evento, detalhe from log")
+  texto <- toupper(gsub("-", "", paste(c(todo$evento, todo$detalhe), collapse = " ")))
+  expect_false(grepl(normalizar_senha(s), texto, fixed = TRUE))
+  expect_false(grepl("ZZZZ", texto, fixed = TRUE))
 })

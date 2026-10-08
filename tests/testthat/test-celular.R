@@ -28,6 +28,15 @@ test_that("campo de login: sem maiúscula automática, sem corretor, sem sugest�
   expect_match(h, 'autocomplete="off"')
 })
 
+test_that("campo do PIN: rótulo PIN, teclado numérico no celular", {
+  h <- html(campo_senha())
+  expect_match(h, ">PIN</label>")
+  expect_match(h, 'inputmode="numeric"')
+  expect_match(h, 'pattern="[0-9]*"', fixed = TRUE)
+  expect_match(codigo <- app_urna(), "Login ou PIN incorretos.", fixed = TRUE)
+  expect_false(grepl("Login ou senha incorretos", codigo, fixed = TRUE))
+})
+
 test_that("campo de senha: escondido, com botão de olho para mostrar", {
   h <- html(campo_senha())
   expect_match(h, 'id="senha"')

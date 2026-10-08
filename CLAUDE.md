@@ -24,8 +24,8 @@ comissão eleitoral que não programa.
 | Eleitores | até 119 Programas de Pós-Graduação **e Centros de Pesquisa** |
 | Voto | 1 por associado, exercido pelo Coordenador(a) ou Vice em exercício |
 | Cédula | **chapa única** (número 1) + abstenção |
-| Credenciais | 3 por programa; só 1 ativa (a distribuída), 2 reservas inativas |
-| Votação | **híbrida**: na sala, cada pessoa vota pelo próprio celular (papel com login, senha e QR code) ou no computador dedicado; online, pelo computador ou pelo celular |
+| Credenciais | 3 por programa, cada uma com um **PIN de 4 números**; só 1 ativa (a distribuída), 2 reservas inativas |
+| Votação | **híbrida**: na sala, cada pessoa vota pelo próprio celular (papel com login, PIN e QR code) ou no computador dedicado; online, pelo computador ou pelo celular |
 
 ### Decisões da reunião com a organização (25/09)
 
@@ -44,7 +44,57 @@ comissão eleitoral que não programa.
   enviada por e-mail (uma ou outra, o voto é um só). O papel é **entregue
   em mãos ao coordenador ou vice identificado**. Os papéis que sobrarem são
   **destruídos**. O QR code tem só o endereço da urna, igual para todos:
-  login e senha são sempre digitados, nunca vão na URL.
+  login e PIN são sempre digitados, nunca vão na URL.
+
+### Decisões da versão definitiva (08/10)
+
+- **A senha passa a ser um PIN de 4 números** (0000 a 9999), sorteado sem
+  viés. Continuam 3 credenciais por programa (1 ativa, 2 reservas), e os 3
+  PINs de um programa são diferentes entre si. Um PIN digitado com menos
+  de 4 números ganha zeros à esquerda: o Excel abre "0427" como 427, e quem
+  digitar 427 entra.
+- **Sem limite de tentativas e sem bloqueio: decisão do Vinicius, tomada
+  sabendo do risco medido.** Conferir um PIN leva ~29 ms, e os logins são
+  previsíveis (`usp-ppgs`). Quem souber um login consegue testar os 10.000
+  PINs em poucos minutos, dentro da janela de 30 minutos (a urna só confere
+  PIN com a urna aberta). Foi proposto um limite de 5 erros a cada 2
+  minutos por programa; a proposta foi recusada.
+- **Entrar e sair sem votar não gasta a credencial:** `autenticar()` só lê
+  e registra no log; só `registrar_voto()` grava. A pessoa pode entrar de
+  novo quantas vezes precisar até votar (há teste).
+- **Lista oficial:** `saida/Lista_Assembleia_Final.xlsx`, 119 linhas, sem
+  cabeçalho: UF, universidade, nome do programa, login. Lida por
+  `ler_lista_oficial()` (`preparar/preparacao.R`), que:
+  - troca espaço não separável por espaço, junta espaços repetidos e apara
+    as pontas;
+  - guarda o login em minúsculas (quem digitar em maiúsculas entra);
+  - aplica só as correções aprovadas (`CORRECOES_LISTA`), e para se o texto
+    encontrado não for o esperado:
+    - `usp-iri`: "de Pós-Graduação de Pós-Graduação" → "de Pós-Graduação";
+    - `ufscar-ppgas`: "Antropologia SociaL" → "Antropologia Social";
+    - `unesp-ar-ppgcs`: universidade "UNESP-Araquara" → "UNESP-Araraquara";
+    - `ufpa-naea`: "Amazonicos" → "Amazônicos";
+    - `puc-ppgcs` e `puc-iri`: universidade "PUC" → "PUC-MG";
+      `puc-rs-ppgscp` → "PUC-RS"; `puc-sp-ppgcs` → "PUC-SP";
+  - monta o nome oficial "<nome do programa> – <universidade>", que aparece
+    no comprovante, no "Votando como" e no papel, e **recusa nomes
+    oficiais repetidos**;
+  - deduz o tipo: sem "Programa", "Mestrado" ou "Doutorado" no nome, é
+    centro. **15 centros, conferidos pelo Vinicius:** `ufba-crh`,
+    `ufpa-naea`, `mpeg`, `fundaj-ips`, `fcrb`, `fgv-cpdoc`, `coc`,
+    `puc-rio-iri`, `cebrap`, `cedec`, `fbsp`, `ufabc-cecs`, `unicamp-nepo`,
+    `unicamp-nep`, `unicamp-pagu`;
+  - usa o login como `id` do programa.
+- **Pendente de confirmação com a ANPOCS:** o login `ufgs-ppgs` (a
+  universidade é UFGD). Fica como está na lista. Outros pontos apontados
+  em 08/10 ficaram como estão, porque não foi pedida correção:
+  "UNESP-Marília", "USP - EACH" e "FCRB" aparecem duas vezes no nome
+  oficial; "Programa Pós-Graduação em Gestão de Políticas Públicas" não tem
+  o "de"; "Programa de Política Científica Tecnológica" talvez tenha perdido
+  um "e".
+- **Sistema de teste com a lista real** (banco urna-teste), com uma
+  **chapa de exemplo**. O sistema final usa o mesmo script de preparação,
+  com a chapa real.
 
 Duas datas do regimento travam o cronograma:
 
@@ -68,37 +118,66 @@ antes de 28/09.** As credenciais reais são geradas depois, e só depois.
 | 29/09 a 02/10 | Secretaria distribui as credenciais reais. |
 | 01 e 02/10 | **Rodada 2 de teste**, com janela de 30 minutos marcada. Ensaia a assembleia: pico de acessos, mesário abrindo e encerrando pelo painel, apuração na hora. |
 | 05 a 09/10 | Semana do Encontro: só correções. |
+| **08/10 (qui.)** | **Versão definitiva:** PIN de 4 números, lista oficial, chapa única. Sistema de teste com a lista real: o banco urna-teste é apagado e recriado no Neon e preparado por `preparar/preparar_banco.R`. |
+| 09/10, antes das 19h30 | Sistema final: banco de produção, chapa real e PINs reais, pelo mesmo script (`AMBIENTE <- "producao"`), e checklist da seção 11. |
 | 09/10 | Eleição. |
 
-### Rodadas de teste
+As linhas até 02/10 são o plano original, registrado como histórico.
 
-- Participantes: 60 membros da organização.
-- Cédula com chapas de exemplo, não as reais.
+### Sistema de teste e rodadas de teste
+
+- Desde 08/10, o sistema de teste usa a **lista oficial real** (119
+  programas) e uma **chapa de exemplo**. Antes, as rodadas usavam 60
+  participantes inventados.
 - Banco Neon separado: projeto `urna-teste`, nem o de dev nem o da eleição.
 - O carimbo de ambiente tem três valores: `dev`, `teste`, `producao` (ver
   seção 4). Os testes automáticos só rodam contra `dev`.
 
-**Operação do banco da rodada** (scripts em `rodada/`, rodados na pasta do
-projeto com `Rscript rodada/<script>.R`):
+**Preparação, a mesma para o teste e para o sistema final:**
+`Rscript preparar/preparar_banco.R`, com `AMBIENTE <- "teste"` ou
+`"producao"` no topo. **Quem roda é o Vinicius** (os PINs vão para pessoas
+de verdade).
+
+| | teste | producao |
+|---|---|---|
+| variáveis lidas do `.Renviron` | `URNA_TESTE_PG_*` | `URNA_PROD_PG_*` |
+| carimbo do banco | `teste` | `producao` |
+| modo da urna | `teste` (faixa de teste) | `oficial` |
+| chapa | `CHAPA_TESTE` (exemplo) | `CHAPA_OFICIAL` (`preparar/chapas.R`; recusa se vazia) |
+| PINs ativos | `saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv` | `saida/PRODUCAO_PINS_ATIVOS_...` |
+| PINs reservas | `saida/TESTE_PINS_RESERVAS_guardar_com_a_mesa.csv` | `saida/PRODUCAO_PINS_RESERVAS_...` |
+
+O script:
+1. lê e limpa a lista (seção 1);
+2. confere o carimbo do banco: vazio ou do mesmo ambiente, senão para;
+3. **recusa banco que já tem programas** (rodar de novo geraria PINs novos);
+4. confere que consegue escrever os dois CSV antes de gerar os PINs;
+5. carimba, cria as tabelas, cadastra a chapa única e deixa a urna
+   **fechada**;
+6. carrega os 119 programas com 3 PINs cada e grava os dois CSV.
+
+**Recarregar o urna-teste** (ou recomeçar se a preparação falhar no meio):
+no painel do Neon, apagar o banco do projeto e criar outro **com o mesmo
+nome**. Endereço, usuário e senha do banco continuam iguais, então nem o
+`.Renviron` nem o Connect Cloud mudam. Depois, rodar o script.
+**Nenhuma ferramenta do projeto apaga tabelas fora do dev.**
+
+**Operação do banco de teste** (scripts em `rodada/`):
 
 - Os scripts leem `URNA_TESTE_PG_HOST`, `_DB`, `_USER`, `_PASSWORD`,
   `_PORT`, `_SSLMODE` do `.Renviron`, e nunca `URNA_PG_*` (que continuam
   apontando para o dev). Sem elas, param. Todos exigem o carimbo `teste`.
 - O app publicado lê só `URNA_PG_*`: no Connect Cloud, elas apontam para o
   urna-teste, com `URNA_AMBIENTE` = `teste`.
-- `01_preparar_banco_rodada.R` — **roda uma vez, e quem roda é o
-  Vinicius** (as senhas vão para pessoas de verdade). Carimba `teste`,
-  cria as tabelas, cadastra as chapas de exemplo, deixa a urna fechada em
-  modo teste, carrega 60 participantes (`rodada-01` a `rodada-60`) e gera
-  `saida/RODADA_senhas_ATIVAS_enviar_aos_participantes.csv` e
-  `saida/RODADA_senhas_RESERVAS_guardar_com_a_mesa.csv`. Recusa banco já
-  preparado. Se falhar no meio: apagar e recriar o projeto no Neon.
 - `abrir_urna_rodada.R`, `encerrar_urna_rodada.R`,
-  `situacao_urna_rodada.R` — enquanto o painel não existe.
+  `situacao_urna_rodada.R`: alternativa ao painel.
+- O antigo `rodada/01_preparar_banco_rodada.R` (60 participantes
+  inventados) foi removido em 08/10: rodá-lo por engano no urna-teste
+  recriado travaria a preparação com a lista real.
 - **Mais de uma sessão:** encerrar → `limpar_votos_rodada.R` → abrir.
   A limpeza apaga votos, votantes e log e volta a urna para fechada, mas
-  mantém as credenciais: as mesmas 60 senhas valem em todas as sessões e
-  rodadas (a não ser que alguma tenha sido trocada por
+  mantém as credenciais: os mesmos PINs valem em todas as sessões e
+  rodadas (a não ser que algum tenha sido trocado por
   `trocar_credencial()`). Antes de apagar, grava em `saida/`, com data no
   nome, o log, a tabela votantes e a tabela votos (ordenada pelo id).
   Exige a urna fora do estado `aberta` e uma confirmação escrita dentro do
@@ -121,7 +200,10 @@ Camadas de prioridade, nesta ordem:
 
 - R + Shiny (`bslib` para UI)
 - PostgreSQL gerenciado no Neon — `DBI` + `RPostgres` + `pool`
-- Senhas: `sodium::password_store()` (scrypt), nunca texto puro
+- PINs: guardados só como hash, `sodium::password_store()` (scrypt), nunca
+  texto puro
+- Leitura da lista oficial (`.xlsx`): pacote `readxl`, **só local** (não vai
+  para o Connect Cloud). Papéis: pacote `qrcode`, só local.
 - Hospedagem: Posit Connect Cloud, **plano gratuito** (tem variáveis
   secretas; shinyapps.io não). Banco: Neon, **plano gratuito**.
 - Pacotes: o Connect Cloud **não usa `renv`**. Ele instala o que está no
@@ -276,9 +358,9 @@ create table log (
 );
 ```
 
-Fora do esquema, criada uma vez por `dev/01_preparar_banco.R` (dev e
-produção) ou por `rodada/01_preparar_banco_rodada.R` (teste), e **nunca
-apagada pelos testes**:
+Fora do esquema, criada uma vez por `dev/01_preparar_banco.R` (dev) ou por
+`preparar/preparar_banco.R` (teste e produção), e **nunca apagada pelos
+testes**:
 
 ```sql
 create table ambiente (
@@ -296,9 +378,9 @@ tudo que não for `dev`. `exigir_ambiente(con, esperado)` para qualquer
 script cujo banco não tenha o carimbo esperado. (O banco urna-dev foi criado
 antes do valor `teste` e aceita só `dev` e `producao`; não faz diferença.)
 
-`login` é o mesmo para as três credenciais do programa; o que muda é a
-senha. Isso torna a trava por programa natural e o e-mail de instrução mais
-simples.
+`login` é o mesmo para as três credenciais do programa; o que muda é o
+PIN. Isso torna a trava por programa natural e o e-mail de instrução mais
+simples. Com a lista oficial, o `id` do programa é o próprio login.
 
 `carregar_programas()` cria a credencial 1 ativa e as reservas 2 e 3
 inativas. `trocar_credencial(con, programa_id)`, numa transação, desativa a
@@ -308,27 +390,43 @@ credenciais do programa com `FOR UPDATE`; `registrar_voto()` trava a
 credencial ativa com `FOR SHARE`. Assim, uma troca e um voto simultâneos
 nunca se cruzam.
 
-Senha: 8 caracteres sorteados de um alfabeto **sem caracteres ambíguos**
-(sem `0 O o 1 l I`), agrupados em blocos de 4 para digitação em celular.
-A verificação tolera minúsculas, hífen e espaços (`normalizar_senha()`).
+**PIN** (desde 08/10; antes eram 8 caracteres sem ambíguos):
+- 4 números, de 0000 a 9999, sorteados **sem viés** (`gerar_pin()`):
+  dois bytes aleatórios dão 0 a 65535; de 60000 em diante, sorteia-se de
+  novo; de 0 a 59999, o resto por 10000 dá cada PIN exatamente 6 vezes. Um
+  teste confere a conta para todos os 65536 valores;
+- os 3 PINs de um programa são diferentes entre si
+  (`gerar_pins_programa()`); entre programas, podem coincidir: quem separa
+  é o login;
+- a verificação tolera espaços e hífen, e completa com zeros à esquerda um
+  PIN digitado com menos de 4 números (`normalizar_senha()`): "427" vale
+  "0427".
 
 `carregar_programas()` só roda em banco sem programas: rodar de novo
-geraria senhas novas e o banco deixaria de bater com os CSV entregues. As
-senhas em texto existem uma única vez, no data.frame que ela devolve.
+geraria PINs novos e o banco deixaria de bater com os CSV entregues. Os
+PINs em texto existem uma única vez, no data.frame que ela devolve.
 
-As senhas saem em **dois CSV**, separados por `separar_senhas()`:
+Os PINs saem em **dois CSV**, separados por `separar_senhas()` (a coluna
+se chama `senha` e guarda o PIN, como texto):
 
-- `..._senhas_ATIVAS_enviar_aos_coordenadores.csv`: uma por programa (a
-  credencial 1). É o que a secretaria envia aos coordenadores.
-- `..._senhas_RESERVAS_guardar_com_a_mesa.csv`: as credenciais 2 e 3. Fica
-  guardado com a mesa e só é usado junto com `trocar_credencial()`.
+- `<AMBIENTE>_PINS_ATIVOS_enviar_aos_coordenadores.csv`: um por programa
+  (a credencial 1). É o que a secretaria envia aos coordenadores.
+- `<AMBIENTE>_PINS_RESERVAS_guardar_com_a_mesa.csv`: as credenciais 2 e 3.
+  Fica guardado com a mesa e só é usado junto com `trocar_credencial()`.
 
-Em dev, os nomes começam com `DEV_`.
+`<AMBIENTE>` é `TESTE` ou `PRODUCAO`. O dev (`dev/02`) ainda usa
+`DEV_senhas_...`.
 
-Todo script que gera senhas confere **antes** que consegue escrever os dois
+Os CSV são UTF-8 separados por vírgula. **Aberto com dois cliques no Excel
+em português, ele pode mostrar os acentos errados, juntar tudo numa coluna
+ou tirar o zero da frente do PIN.** Para abrir certo: Excel → Dados → De
+Texto/CSV → origem 65001 (UTF-8), delimitador vírgula. O PIN sem o zero
+continua funcionando.
+
+Todo script que gera PINs confere **antes** que consegue escrever os dois
 CSV (`exigir_escrita()`; arquivo aberto no Excel trava a escrita). Senão a
-carga entraria no banco, a escrita falharia depois, e as senhas ficariam só
-em hash — perdidas.
+carga entraria no banco, a escrita falharia depois, e os PINs ficariam só
+em hash — perdidos.
 
 ---
 
@@ -429,6 +527,11 @@ original, até o fim da janela de retenção.
    - **sem bloqueio de conta**: travar uma credencial numa janela de 30
      minutos é negar o voto a um programa legítimo. Se houver atraso entre
      tentativas, nunca com `Sys.sleep()` — ele congela o app para todos.
+     Desde 08/10, também **sem limite de tentativas**, por decisão do
+     Vinicius, sabendo do risco de adivinhação do PIN (seção 1);
+   - o campo do PIN abre o teclado numérico; a resposta de erro é "Login
+     ou PIN incorretos.";
+   - entrar e sair sem votar não gasta a credencial.
 2. Cédula: digita o número da chapa → aparecem o nome da chapa e a lista de
    membros com seus cargos → CORRIGE ou CONFIRMA. Sem fotos. O botão de
    confirmar diz o que confirma: "CONFIRMAR VOTO NA CHAPA N" ou
@@ -472,8 +575,8 @@ Como é feito (`R/comprovante.R`):
 
 **Painel do mesário** — app `painel/app.R`, separado da urna
 
-- A geração em massa das senhas **não** é um botão do painel: é um script
-  rodado uma vez no computador do responsável, para que as 357 senhas em
+- A geração em massa dos PINs **não** é um botão do painel: é um script
+  rodado uma vez no computador do responsável, para que os 357 PINs em
   texto nunca passem pelo servidor.
 
 - **Acesso:** confere `URNA_AMBIENTE` contra o carimbo, como a urna, e
@@ -538,13 +641,29 @@ elaborada, qualquer coisa não listada acima.
 
 - String de conexão do banco e credenciais do Google: variáveis de ambiente
   no Connect Cloud. Nunca no repositório, nunca em `app.R`.
-- Os dois CSV com as senhas reais são gerados **uma vez, localmente**. O
-  das ativas vai para a secretaria; o das reservas fica com a mesa.
-  Nenhum dos dois entra no repositório nem em nenhuma sessão de trabalho.
+- Os dois CSV com os PINs reais (e os do sistema de teste, que usa a lista
+  real) são gerados **uma vez, localmente**, por
+  `preparar/preparar_banco.R`. O dos ativos vai para a secretaria; o das
+  reservas fica com a mesa. Nenhum dos dois entra no repositório nem em
+  nenhuma sessão de trabalho.
 - Desenvolvimento sempre contra o banco `urna-dev`, com dados sintéticos.
 - Para testar na tela: `dev/03_preparar_urna_dev.R` recria os 119
-  programas, os dois CSV de senhas, a urna aberta e duas chapas de exemplo. Os testes
-  apagam o banco: rode o `03` depois deles.
+  programas sintéticos, os dois CSV de PINs, a urna (fechada por padrão;
+  `ESTADO_URNA` no topo) e a chapa única de exemplo. Os testes apagam o
+  banco: rode o `03` depois deles.
+- **Muitos votos ao mesmo tempo:** `Rscript dev/simular_carga.R`, só no dev
+  (apaga o banco de dev; depois, rode o `03`). Abre 20 processos que entram
+  e votam ao mesmo tempo, pelas mesmas funções da urna, com 20 tentativas
+  de voto duplo de propósito. **Resultado em 08/10: aprovado.**
+  - 119 votos aceitos; as 20 tentativas duplas recusadas (3 delas pela
+    trava do banco, porque chegaram juntas até a gravação; 17 já na
+    entrada, como "já votou");
+  - votantes = votos;
+  - entrada: mediana 0,18 s, máximo 0,78 s; voto: mediana 0,20 s, máximo
+    0,59 s.
+  
+  Mede o banco e a transação, **não** o servidor do Connect Cloud com
+  navegadores de verdade.
 - Rodar a urna localmente: `shiny::runApp("urna", launch.browser = TRUE)`;
   o painel: `shiny::runApp("painel", launch.browser = TRUE)`.
 - **Urna e painel juntos** (demonstração): dois cliques em
@@ -567,8 +686,12 @@ elaborada, qualquer coisa não listada acima.
   computador do responsável.
   - No topo do script: `ENDERECO_URNA` (https, sem `?` nem `#`),
     `ARQUIVO_ATIVAS` e `ARQUIVO_PDF`.
-  - Gera uma página A4 por programa, com nome, login, senha e um QR code só
+  - Gera uma página A4 por programa, com nome, login, PIN e um QR code só
     com o endereço da urna.
+  - Por padrão, lê `saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv`.
+    Os papéis de teste (`TESTE_`, `RODADA_`, `DEV_`) trazem a faixa
+    "CREDENCIAL DE TESTE / este PIN NÃO vale na eleição": o mesmo login
+    terá outro PIN no sistema final.
   - Recusa o arquivo de reservas.
   - Arquivos `RODADA_` ou `DEV_` saem com a faixa "CREDENCIAL DE TESTE".
   - O PDF contém senhas: apagar depois de imprimir.
@@ -609,6 +732,14 @@ Cada etapa com teste antes do código, e commit ao fim de cada uma.
      - `saida/` e `*.pdf` no `.gitignore`.
    - falta: publicar e confirmar que a pasta `R/` vai junto (seção 2)
 10. Simulação completa com 119 votos e gente de fora testando
+    - ~~119 votos simultâneos por script~~ **aprovado em 08/10**
+      (`dev/simular_carga.R`, seção 9)
+    - falta: gente de fora testando o sistema de teste com a lista real
+
+**Versão definitiva (08/10):** PIN de 4 números, lista oficial com limpeza
+e correções, chapa única, script único de preparação
+(`preparar/preparar_banco.R`) e simulação de carga. 1160 verificações nos
+testes, todas passando (incluindo as que leem a lista oficial).
 
 ---
 
@@ -636,7 +767,18 @@ pode ser esquecido.
       na rodada de teste, e conhecida só pelo Vinicius e pela segunda
       pessoa treinada. Gerar o hash novo com `dev/gerar_hash_mesario.R` e
       pôr em `URNA_MESARIO_HASH` onde o painel de produção roda
-- [ ] `dev/01_preparar_banco.R` rodado com `AMBIENTE <- "producao"`
+- [ ] `CHAPA_OFICIAL` preenchida em `preparar/chapas.R` (número, nome,
+      membros e cargos), conferida com a Comissão
+- [ ] `URNA_PROD_PG_*` no `.Renviron` apontando para o banco da eleição
+- [ ] Login `ufgs-ppgs` (UFGD) confirmado com a ANPOCS
+- [ ] `preparar/preparar_banco.R` rodado **uma vez** com
+      `AMBIENTE <- "producao"`. Ele carimba `producao`, deixa a urna
+      fechada em modo `oficial` e gera
+      `saida/PRODUCAO_PINS_ATIVOS_enviar_aos_coordenadores.csv` (para a
+      secretaria) e `..._RESERVAS_guardar_com_a_mesa.csv` (para a mesa)
+- [ ] Papéis da eleição gerados com `dev/gerar_papeis.R` apontando para o
+      arquivo `PRODUCAO_...` e para o endereço da urna de produção: **sem**
+      a faixa de teste
 - [ ] No Connect Cloud, `URNA_AMBIENTE` = `producao`. A urna compara com o
       carimbo do banco: se a tela de login mostrar "Urna indisponível — mal
       configurada", a variável ou as `URNA_PG_*` estão erradas. Não abrir a
@@ -680,8 +822,13 @@ Não são detalhe: sem elas o sistema funciona e a eleição continua frágil.
   - destruir os que sobrarem;
   - apagar o PDF.
 - **Instruções da rodada e da eleição:** o celular é um caminho principal.
-  Explicar o QR code do papel e o botão de olho da senha. No iPhone, o
-  comprovante pode abrir numa aba: a tela explica como salvar.
+  Explicar o QR code do papel, o PIN de 4 números e o botão de olho. No
+  iPhone, o comprovante pode abrir numa aba: a tela explica como salvar.
+- **PIN de teste × PIN da eleição:** o mesmo login terá um PIN no sistema
+  de teste e outro no sistema final. Avisar os coordenadores, por escrito,
+  que o PIN de teste não vale no dia 9.
+- **Secretaria e o CSV:** abrir pelo Excel → Dados → De Texto/CSV (UTF-8,
+  vírgula), para não perder acentos nem o zero do PIN (seção 4).
 - **Uma segunda pessoa treinada** para operar o painel do mesário no dia 9.
 - **Higiene do computador presencial:** o eleitor digita a própria senha, e
   a sessão se encerra sozinha depois do "voto depositado".

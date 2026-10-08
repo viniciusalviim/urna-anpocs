@@ -21,7 +21,7 @@ pool <- conectar_pool()
 onStop(function() pool::poolClose(pool))
 
 MENSAGENS <- list(
-  credenciais_invalidas = "Login ou senha incorretos.",
+  credenciais_invalidas = "Login ou PIN incorretos.",
   urna_nao_aberta       = "A urna ainda não foi aberta pela mesa.",
   programa_inapto       = "Este programa não consta como apto a votar.",
   ja_votou              = "Este programa já votou nesta eleição."

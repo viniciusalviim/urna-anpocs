@@ -1,8 +1,8 @@
 # Papéis impressos com a credencial: um por programa, com nome, login,
-# senha e um QR code que abre a urna. Usado por dev/gerar_papeis.R, que roda
-# só no computador do responsável (como a geração das senhas).
+# PIN e um QR code que abre a urna. Usado por dev/gerar_papeis.R, que roda
+# só no computador do responsável (como a geração dos PINs).
 #
-# O QR code contém SÓ o endereço da urna, igual para todos. Login e senha
+# O QR code contém SÓ o endereço da urna, igual para todos. Login e PIN
 # vão escritos no papel e são sempre digitados: nunca vão na URL.
 #
 # Depende de R/comprovante.R (texto_latin1, ajustar_pdf).
@@ -25,11 +25,15 @@ qr_da_urna <- function(endereco) {
   qrcode::qr_code(validar_endereco_urna(endereco), ecl = "M")
 }
 
+# Arquivos do sistema de teste (TESTE_), da rodada antiga (RODADA_) e do dev
+# (DEV_). Os do sistema final começam com PRODUCAO_.
 e_arquivo_de_teste <- function(arquivo) {
-  grepl("^(RODADA|DEV)_", basename(arquivo))
+  grepl("^(TESTE|RODADA|DEV)_", basename(arquivo))
 }
 
-# Lê o CSV das senhas ATIVAS (uma por programa). Recusa o de reservas.
+# Lê o CSV dos PINs ATIVOS (um por programa). Recusa o de reservas.
+# A coluna se chama "senha" e guarda o PIN; lida como texto, o zero da
+# frente não se perde.
 ler_senhas_ativas <- function(arquivo) {
   if (grepl("RESERVA", basename(arquivo), ignore.case = TRUE)) {
     stop("Este e o arquivo de reservas. Os papeis usam so o das ativas.", call. = FALSE)
@@ -72,10 +76,14 @@ gerar_papeis_pdf <- function(senhas, endereco, arquivo, teste = FALSE) {
 
     y <- 0.95
     if (teste) {
-      graphics::rect(0.06, 0.93, 0.94, 0.975, col = "#c62828", border = NA)
-      graphics::text(0.5, 0.9525, L("CREDENCIAL DE TESTE — sem validade na eleição"),
-                     col = "white", font = 2, cex = 1.3)
-      y <- 0.90
+      # O mesmo login terá outro PIN no sistema final: o aviso fica em
+      # destaque para ninguém guardar este papel para o dia da eleição.
+      graphics::rect(0.06, 0.905, 0.94, 0.978, col = "#c62828", border = NA)
+      graphics::text(0.5, 0.958, "CREDENCIAL DE TESTE",
+                     col = "white", font = 2, cex = 1.4)
+      graphics::text(0.5, 0.925, L("este PIN NÃO vale na eleição"),
+                     col = "white", font = 2, cex = 1.25)
+      y <- 0.875
     }
 
     linha <- function(txt, cex = 1, font = 1, passo = 0.035, familia = "Helvetica") {
@@ -97,7 +105,7 @@ gerar_papeis_pdf <- function(senhas, endereco, arquivo, teste = FALSE) {
 
     linha("Login", cex = 0.9, passo = 0.035)
     linha(senhas$login[i], cex = 2.2, font = 2, passo = 0.06, familia = "Courier")
-    linha("Senha", cex = 0.9, passo = 0.04)
+    linha("PIN", cex = 0.9, passo = 0.04)
     linha(senhas$senha[i], cex = 3, font = 2, passo = 0.07, familia = "Courier")
 
     # QR code quadrado no papel: a altura, em unidades da página, é
@@ -113,7 +121,7 @@ gerar_papeis_pdf <- function(senhas, endereco, arquivo, teste = FALSE) {
                    cex = 1, font = 2)
     instrucoes <- c(
       L("1. Aponte a câmera para o código ao lado."),
-      L("2. Digite o login e a senha acima,"),
+      L("2. Digite o login e o PIN acima,"),
       L("   exatamente como estão."),
       L("3. Escolha, confirme e guarde o comprovante."),
       "",

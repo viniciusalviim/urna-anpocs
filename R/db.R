@@ -28,6 +28,22 @@ parametros_pg <- function(prefixo = "URNA_PG") {
   )
 }
 
+# Variáveis de conexão de cada ambiente, para os scripts locais:
+# - dev:      URNA_PG_*        (o .Renviron do desenvolvimento e os testes)
+# - teste:    URNA_TESTE_PG_*  (banco urna-teste)
+# - producao: URNA_PROD_PG_*   (banco da eleição)
+# O app publicado lê sempre URNA_PG_*: no Connect Cloud, elas apontam para o
+# banco daquele app.
+prefixo_do_ambiente <- function(ambiente) {
+  stopifnot(length(ambiente) == 1L)
+  switch(ambiente,
+         dev      = "URNA_PG",
+         teste    = "URNA_TESTE_PG",
+         producao = "URNA_PROD_PG",
+         stop("Ambiente desconhecido: '", ambiente, "'. Use dev, teste ou producao.",
+              call. = FALSE))
+}
+
 # Conexão única. Use nos scripts e nos testes.
 # Sem as variáveis do prefixo pedido, para: nunca cai em outro prefixo.
 conectar <- function(prefixo = "URNA_PG") {
