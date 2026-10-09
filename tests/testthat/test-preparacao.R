@@ -232,9 +232,93 @@ test_that("os CSV de PINs dizem de qual sistema são", {
   expect_error(arquivos_de_pins("outro", "saida"))
 })
 
-# ---- preparar_banco() (no banco de dev) ------------------------------------
+test_that("os CSV das avulsas dizem que são avulsas e ficam com a mesa", {
+  a <- arquivos_de_pins("teste", "saida")
+  expect_equal(unname(a["avulsas_ativas"]),
+               "saida/TESTE_PINS_AVULSAS_ATIVOS_guardar_com_a_mesa.csv")
+  expect_equal(unname(a["avulsas_reservas"]),
+               "saida/TESTE_PINS_AVULSAS_RESERVAS_guardar_com_a_mesa.csv")
+  p <- arquivos_de_pins("producao", "saida")
+  expect_equal(unname(p["avulsas_ativas"]),
+               "saida/PRODUCAO_PINS_AVULSAS_ATIVOS_guardar_com_a_mesa.csv")
+  expect_length(unique(a), 4)
+})
+
+# ---- credenciais avulsas ---------------------------------------------------
 
 lista_pequena <- function() limpar_lista(bruta_exemplo(), correcoes_exemplo())
+
+test_that("10 credenciais avulsas: credencial-01 a credencial-10", {
+  v <- credenciais_avulsas()
+  expect_equal(nrow(v), 10)
+  expect_equal(v$login, sprintf("credencial-%02d", 1:10))
+  expect_equal(v$id, v$login)
+  expect_equal(v$nome_oficial, sprintf("Credencial avulsa %02d", 1:10))
+  expect_true(all(v$tipo %in% c("ppg", "centro")))   # o esquema só aceita esses
+})
+
+test_that("os logins das avulsas não colidem com a lista oficial", {
+  skip_if_not(file.exists(ARQUIVO_LISTA), "lista oficial ausente nesta máquina")
+  l <- ler_lista_oficial(ARQUIVO_LISTA)
+  expect_length(intersect(l$login, credenciais_avulsas()$login), 0)
+  expect_length(intersect(l$nome_oficial, credenciais_avulsas()$nome_oficial), 0)
+})
+
+test_that("preparar_banco carrega as avulsas, votando normalmente, com PINs em arquivos separados", {
+  con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
+  pasta <- withr::local_tempdir()
+  arq <- arquivos_de_pins("dev", pasta)
+
+  r <- preparar_banco(con, "dev", lista_pequena(), CHAPA_OFICIAL, arq,
+                      avulsas = credenciais_avulsas())
+  expect_equal(r$programas, 15L)
+  expect_equal(r$avulsas, 10L)
+  expect_equal(DBI::dbGetQuery(con, "select count(*)::int as n from credenciais")$n, 45L)
+  expect_equal(DBI::dbGetQuery(con,
+    "select count(*)::int as n from credenciais c join programas p on p.id = c.programa_id
+      where p.login like 'credencial-%' and c.ativa and p.apto")$n, 10L)
+
+  ler <- function(k) read.csv(arq[[k]], colClasses = "character", fileEncoding = "UTF-8")
+  ativas <- ler("ativas"); reservas <- ler("reservas")
+  av_ativas <- ler("avulsas_ativas"); av_reservas <- ler("avulsas_reservas")
+
+  # a secretaria não recebe as avulsas
+  expect_equal(nrow(ativas), 5)
+  expect_equal(nrow(reservas), 10)
+  expect_false(any(grepl("^credencial-", c(ativas$login, reservas$login))))
+  # as avulsas ficam com a mesa, em arquivos próprios
+  expect_equal(av_ativas$login, sprintf("credencial-%02d", 1:10))
+  expect_true(all(av_ativas$ordem == "1"))
+  expect_equal(nrow(av_reservas), 20)
+  expect_true(all(av_reservas$ordem %in% c("2", "3")))
+  # os papéis das avulsas leem o arquivo das ativas delas
+  expect_equal(nrow(ler_senhas_ativas(arq[["avulsas_ativas"]])), 10)
+
+  # aparecem no painel como as outras
+  lp <- listar_programas(con)
+  expect_true(all(sprintf("credencial-%02d", 1:10) %in% lp$login))
+  expect_equal(lp$credencial_ativa[lp$login == "credencial-03"], 1L)
+
+  # e votam normalmente
+  DBI::dbExecute(con, "update urna set estado = 'aberta', aberta_em = now()")
+  a <- autenticar(con, "credencial-03", av_ativas$senha[av_ativas$login == "credencial-03"])
+  expect_true(a$ok)
+  expect_equal(a$nome_oficial, "Credencial avulsa 03")
+  expect_true(registrar_voto(con, a$programa_id, a$credencial_id, "1")$ok)
+  expect_true(conferir_integridade(con)$ok)
+})
+
+test_that("preparar_banco recusa avulsa com login que já está na lista", {
+  con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))
+  v <- credenciais_avulsas()
+  v$login[1] <- "usp-ppgs"; v$id[1] <- "usp-ppgs"
+  expect_error(preparar_banco(con, "dev", lista_pequena(), CHAPA_OFICIAL,
+                              arquivos_de_pins("dev", withr::local_tempdir()),
+                              avulsas = v), "avulsa")
+  expect_equal(DBI::dbGetQuery(con, "select count(*)::int as n from programas")$n, 0L)
+})
+
+# ---- preparar_banco() (no banco de dev) ------------------------------------
 
 test_that("preparar_banco carrega a lista, a chapa e a urna fechada, e grava os PINs", {
   con <- banco_vazio(); on.exit(DBI::dbDisconnect(con))

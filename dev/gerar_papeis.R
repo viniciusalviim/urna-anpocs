@@ -12,9 +12,17 @@
 #   Rscript dev/gerar_papeis.R
 
 ENDERECO_URNA  <- ""   # endereço publicado da urna, começando com https://
-ARQUIVO_ATIVAS <- "saida/TESTE_PINS_ATIVOS_enviar_aos_coordenadores.csv"
-ARQUIVO_PDF    <- "saida/TESTE_papeis_credenciais.pdf"
+SISTEMA        <- "TESTE"   # "TESTE" ou "PRODUCAO": define os arquivos abaixo
 LOGO           <- "dev/logo_anpocs"   # sem extensão: .png ou .jpg
+
+# Dois PDFs: os papéis da lista (um por programa) e os das 10 credenciais
+# avulsas (ficam com a mesa).
+ARQUIVO_ATIVAS  <- sprintf("saida/%s_PINS_ATIVOS_enviar_aos_coordenadores.csv", SISTEMA)
+ARQUIVO_PDF     <- sprintf("saida/%s_papeis_credenciais.pdf", SISTEMA)
+ARQUIVO_AVULSAS <- sprintf("saida/%s_PINS_AVULSAS_ATIVOS_guardar_com_a_mesa.csv", SISTEMA)
+PDF_AVULSAS     <- sprintf("saida/%s_papeis_AVULSAS_guardar_com_a_mesa.pdf", SISTEMA)
+
+stopifnot(SISTEMA %in% c("TESTE", "PRODUCAO"))
 
 source("R/comprovante.R")
 source("R/credenciais.R")
@@ -27,15 +35,21 @@ if (!nzchar(ENDERECO_URNA)) {
 validar_endereco_urna(ENDERECO_URNA)
 logo <- ler_logo(LOGO)   # sem o logo, para aqui
 
-senhas <- ler_senhas_ativas(ARQUIVO_ATIVAS)
-teste  <- e_arquivo_de_teste(ARQUIVO_ATIVAS)
+gerar <- function(csv, pdf) {
+  senhas <- ler_senhas_ativas(csv)
+  dir.create(dirname(pdf), showWarnings = FALSE)
+  exigir_escrita(pdf)   # PDF aberto no leitor trava a escrita
+  gerar_papeis_pdf(senhas, ENDERECO_URNA, pdf, teste = e_arquivo_de_teste(csv), logo = logo)
+  cat(nrow(senhas), "papeis gerados em", pdf, "\n")
+}
 
-dir.create(dirname(ARQUIVO_PDF), showWarnings = FALSE)
-exigir_escrita(ARQUIVO_PDF)   # PDF aberto no leitor trava a escrita
+gerar(ARQUIVO_ATIVAS, ARQUIVO_PDF)
+if (file.exists(ARQUIVO_AVULSAS)) {
+  gerar(ARQUIVO_AVULSAS, PDF_AVULSAS)
+} else {
+  cat("ATENCAO: nao achei", ARQUIVO_AVULSAS, "- papeis das avulsas nao gerados.\n")
+}
 
-gerar_papeis_pdf(senhas, ENDERECO_URNA, ARQUIVO_PDF, teste = teste, logo = logo)
-
-cat(nrow(senhas), "papeis gerados em", ARQUIVO_PDF, "\n")
-if (teste) cat("(arquivo de teste: cada papel traz a faixa CREDENCIAL DE TESTE)\n")
+if (SISTEMA == "TESTE") cat("(sistema de teste: cada papel traz a faixa CREDENCIAL DE TESTE)\n")
 cat("\nConfira um papel lendo o QR code com o celular antes de imprimir tudo.\n",
-    "O PDF tem PINs: apague depois de imprimir.\n", sep = "")
+    "Os PDFs tem PINs: apague depois de imprimir.\n", sep = "")

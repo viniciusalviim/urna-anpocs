@@ -174,7 +174,25 @@ O script:
 4. confere que consegue escrever os dois CSV antes de gerar os PINs;
 5. carimba, cria as tabelas, cadastra a chapa única e deixa a urna
    **fechada**;
-6. carrega os 119 programas com 3 PINs cada e grava os dois CSV.
+6. carrega os 119 programas e as **10 credenciais avulsas**, com 3 PINs
+   cada, e grava os quatro CSV.
+
+**Credenciais avulsas (09/10):** para alguém não previsto na lista que
+aparecer para votar.
+- São 10, com logins `credencial-01` a `credencial-10` e nomes oficiais
+  "Credencial avulsa 01" a "Credencial avulsa 10" (`credenciais_avulsas()`).
+- Entram na mesma carga que a lista, como programas comuns: ligadas desde
+  o começo, com PIN (1 ativa, 2 reservas), votando normalmente e listadas
+  no painel como os outros.
+- O tipo é `ppg`, porque o esquema só aceita `ppg` ou `centro`.
+- A preparação para se uma avulsa repetir login ou nome da lista.
+- Os PINs delas **não** vão para o arquivo da secretaria. Saem em
+  `<AMBIENTE>_PINS_AVULSAS_ATIVOS_guardar_com_a_mesa.csv` e
+  `<AMBIENTE>_PINS_AVULSAS_RESERVAS_guardar_com_a_mesa.csv`, e os papéis
+  delas em `<AMBIENTE>_papeis_AVULSAS_guardar_com_a_mesa.pdf`. Tudo fica
+  com a mesa.
+- **Efeito na contagem:** as avulsas são aptas. O painel mostra "X de 129
+  aptos", e não "de 119". A ata precisa explicar isso.
 
 **Recarregar o urna-teste** (ou recomeçar se a preparação falhar no meio):
 no painel do Neon, apagar o banco do projeto e criar outro **com o mesmo
@@ -732,8 +750,11 @@ elaborada, qualquer coisa não listada acima.
   = `dev`; no Connect Cloud, `teste` na rodada e `producao` na eleição.
 - **Papéis para imprimir:** `Rscript dev/gerar_papeis.R`, só no
   computador do responsável.
-  - No topo do script: `ENDERECO_URNA` (https, sem `?` nem `#`),
-    `ARQUIVO_ATIVAS`, `ARQUIVO_PDF` e `LOGO`.
+  - No topo do script: `ENDERECO_URNA` (https, sem `?` nem `#`), `SISTEMA`
+    ("TESTE" ou "PRODUCAO", que define os nomes dos arquivos) e `LOGO`.
+  - Gera dois PDFs: `<SISTEMA>_papeis_credenciais.pdf` (os 119 programas)
+    e `<SISTEMA>_papeis_AVULSAS_guardar_com_a_mesa.pdf` (as 10 avulsas, se
+    o CSV delas existir).
   - **Layout (08/10):** uma página A4 por programa, só com, de cima para
     baixo:
     1. o logo da ANPOCS no canto superior esquerdo;
@@ -801,8 +822,8 @@ e correções, chapa única, script único de preparação
 (`preparar/preparar_banco.R`) e simulação de carga. Depois, PIN de 1000 a
 9999, sem zero na frente; login da UFGD; chapa oficial com 13 membros nos
 dois sistemas; novo layout do papel, com o logo; cédula com caixa de
-rolagem. 1254 verificações nos testes, todas passando (incluindo as que
-leem a lista oficial).
+rolagem; 10 credenciais avulsas (09/10). 1285 verificações nos testes,
+todas passando (incluindo as que leem a lista oficial).
 
 ---
 

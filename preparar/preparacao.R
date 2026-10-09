@@ -132,23 +132,47 @@ ler_lista_oficial <- function(arquivo) {
 # ---- os arquivos de PINs ---------------------------------------------------
 
 # O nome diz de qual sistema são: TESTE_..., PRODUCAO_... (DEV_... nos testes).
+# Os das credenciais avulsas dizem AVULSAS e ficam com a mesa.
 arquivos_de_pins <- function(ambiente, pasta = "saida") {
   stopifnot(length(ambiente) == 1L, ambiente %in% AMBIENTES)
   p <- toupper(ambiente)
-  c(ativas   = file.path(pasta, paste0(p, "_PINS_ATIVOS_enviar_aos_coordenadores.csv")),
-    reservas = file.path(pasta, paste0(p, "_PINS_RESERVAS_guardar_com_a_mesa.csv")))
+  c(ativas           = file.path(pasta, paste0(p, "_PINS_ATIVOS_enviar_aos_coordenadores.csv")),
+    reservas         = file.path(pasta, paste0(p, "_PINS_RESERVAS_guardar_com_a_mesa.csv")),
+    avulsas_ativas   = file.path(pasta, paste0(p, "_PINS_AVULSAS_ATIVOS_guardar_com_a_mesa.csv")),
+    avulsas_reservas = file.path(pasta, paste0(p, "_PINS_AVULSAS_RESERVAS_guardar_com_a_mesa.csv")))
+}
+
+# ---- credenciais avulsas ---------------------------------------------------
+
+# Para alguém não previsto na lista que aparecer para votar (decisão de
+# 08/10). Entram na carga como programas comuns: ligadas desde o começo, com
+# PIN (1 ativa, 2 reservas), votando normalmente e listadas no painel.
+# O tipo fica "ppg" porque o esquema só aceita ppg ou centro; o login e o
+# nome deixam claro que são avulsas.
+credenciais_avulsas <- function(n = 10L) {
+  i <- seq_len(n)
+  data.frame(
+    id           = sprintf("credencial-%02d", i),
+    login        = sprintf("credencial-%02d", i),
+    nome_oficial = sprintf("Credencial avulsa %02d", i),
+    tipo         = "ppg",
+    stringsAsFactors = FALSE
+  )
 }
 
 # ---- a preparação ----------------------------------------------------------
 
 # Prepara um banco vazio (ou recém-criado) para o ambiente pedido:
 # carimbo, tabelas, chapa única, urna FECHADA, programas e PINs.
+# `avulsas` (credenciais_avulsas()) entram na mesma carga; os PINs delas vão
+# para os arquivos avulsas_*, e não para os da secretaria.
 #
 # Recusa, sem mexer em nada:
 # - banco com carimbo de outro ambiente;
 # - banco que já tem programas (rodar de novo geraria PINs novos, e os já
-#   entregues deixariam de valer).
-preparar_banco <- function(con, ambiente, lista, chapa, arquivos,
+#   entregues deixariam de valer);
+# - avulsa com login ou nome oficial que já está na lista.
+preparar_banco <- function(con, ambiente, lista, chapa, arquivos, avulsas = NULL,
                            caminho_schema = "sql/001_schema.sql") {
   stopifnot(length(ambiente) == 1L, ambiente %in% AMBIENTES)
 
@@ -171,8 +195,19 @@ preparar_banco <- function(con, ambiente, lista, chapa, arquivos,
     }
   }
 
+  colunas <- c("id", "login", "nome_oficial", "tipo")
+  if (!is.null(avulsas)) {
+    repetidos <- union(intersect(avulsas$login, lista$login),
+                       intersect(avulsas$nome_oficial, lista$nome_oficial))
+    if (length(repetidos)) {
+      stop("Credencial avulsa repete login ou nome da lista: ",
+           paste(repetidos, collapse = ", "), ". Nada foi feito.", call. = FALSE)
+    }
+  }
+
   validar_chapa(chapa)
-  exigir_escrita(arquivos)   # antes de gerar PINs: Excel aberto trava a escrita
+  usados <- if (is.null(avulsas)) arquivos[c("ativas", "reservas")] else arquivos
+  exigir_escrita(usados)   # antes de gerar PINs: Excel aberto trava a escrita
 
   if (is.na(amb)) marcar_ambiente(con, ambiente)
   exigir_ambiente(con, ambiente)
@@ -187,13 +222,24 @@ preparar_banco <- function(con, ambiente, lista, chapa, arquivos,
      on conflict (id) do nothing",
     list(if (identical(ambiente, "producao")) "oficial" else "teste"))
 
-  saida <- carregar_programas(con, lista)
-  s <- separar_senhas(saida)
-  utils::write.csv(s$ativas,   arquivos[["ativas"]],   row.names = FALSE, fileEncoding = "UTF-8")
-  utils::write.csv(s$reservas, arquivos[["reservas"]], row.names = FALSE, fileEncoding = "UTF-8")
+  todos <- rbind(lista[, colunas], if (!is.null(avulsas)) avulsas[, colunas])
+  saida <- carregar_programas(con, todos)
+
+  e_avulsa <- saida$login %in% avulsas$login
+  s  <- separar_senhas(saida[!e_avulsa, ])
+  grava <- function(d, k) utils::write.csv(d, arquivos[[k]], row.names = FALSE,
+                                           fileEncoding = "UTF-8")
+  grava(s$ativas, "ativas")
+  grava(s$reservas, "reservas")
+  if (any(e_avulsa)) {
+    sa <- separar_senhas(saida[e_avulsa, ])
+    grava(sa$ativas, "avulsas_ativas")
+    grava(sa$reservas, "avulsas_reservas")
+  }
 
   list(programas = length(unique(saida$login)),
+       avulsas   = sum(e_avulsa & saida$ordem == 1L),
        ativas    = nrow(s$ativas),
        reservas  = nrow(s$reservas),
-       arquivos  = arquivos)
+       arquivos  = usados)
 }
